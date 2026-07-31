@@ -2,6 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { supabase } from "../../lib/supabase";
 
 const CHAVE_PIX = "14.847.657/0001-01";
 
@@ -30,6 +31,14 @@ export default function PagamentoPage() {
   const [valor, setValor] = useState(0);
   const [carregando, setCarregando] = useState(true);
   const [chaveCopiada, setChaveCopiada] = useState(false);
+  const [arquivoComprovante, setArquivoComprovante] =
+    useState<File | null>(null);
+  const [enviandoComprovante, setEnviandoComprovante] =
+    useState(false);
+  const [comprovanteEnviado, setComprovanteEnviado] =
+    useState(false);
+  const [mensagemComprovante, setMensagemComprovante] =
+    useState("");
 
   useEffect(() => {
     const parametros = new URLSearchParams(window.location.search);
@@ -53,7 +62,30 @@ export default function PagamentoPage() {
         ? valorRecebido
         : 0
     );
-    setCarregando(false);
+    async function verificarComprovanteExistente() {
+      if (!tokenRecebido) {
+        setCarregando(false);
+        return;
+      }
+
+      const { data, error } = await supabase.rpc(
+        "consultar_status_comprovante_pix",
+        {
+          token_informado: tokenRecebido,
+        }
+      );
+
+      if (!error && data?.comprovante_path) {
+        setComprovanteEnviado(true);
+        setMensagemComprovante(
+          "Comprovante já enviado. O pagamento está aguardando análise."
+        );
+      }
+
+      setCarregando(false);
+    }
+
+    verificarComprovanteExistente();
   }, []);
 
   const inscricaoGratuita = valor === 0;
@@ -96,10 +128,141 @@ export default function PagamentoPage() {
     }
   }
 
+  function selecionarComprovante(
+    event: React.ChangeEvent<HTMLInputElement>
+  ) {
+    const arquivo = event.target.files?.[0] ?? null;
+
+    setMensagemComprovante("");
+
+    if (!arquivo) {
+      setArquivoComprovante(null);
+      return;
+    }
+
+    const tiposPermitidos = [
+      "image/jpeg",
+      "image/png",
+      "image/webp",
+      "application/pdf",
+    ];
+
+    if (!tiposPermitidos.includes(arquivo.type)) {
+      setArquivoComprovante(null);
+      setMensagemComprovante(
+        "Formato não aceito. Envie JPG, PNG, WEBP ou PDF."
+      );
+      event.target.value = "";
+      return;
+    }
+
+    if (arquivo.size > 10 * 1024 * 1024) {
+      setArquivoComprovante(null);
+      setMensagemComprovante(
+        "O arquivo deve ter no máximo 10 MB."
+      );
+      event.target.value = "";
+      return;
+    }
+
+    setArquivoComprovante(arquivo);
+  }
+
+  async function enviarComprovantePix() {
+    if (!arquivoComprovante) {
+      setMensagemComprovante(
+        "Selecione uma imagem ou PDF do comprovante."
+      );
+      return;
+    }
+
+    if (!token) {
+      setMensagemComprovante(
+        "Não foi possível identificar a inscrição."
+      );
+      return;
+    }
+
+    setEnviandoComprovante(true);
+    setMensagemComprovante("");
+
+    try {
+      const extensaoOriginal =
+        arquivoComprovante.name.split(".").pop()?.toLowerCase() ||
+        (arquivoComprovante.type === "application/pdf"
+          ? "pdf"
+          : "jpg");
+
+      const extensaoSegura = extensaoOriginal.replace(
+        /[^a-z0-9]/g,
+        ""
+      );
+
+      const caminhoArquivo = `${token}/${Date.now()}-comprovante.${extensaoSegura}`;
+
+      const { error: erroUpload } = await supabase.storage
+        .from("comprovantes-pix")
+        .upload(caminhoArquivo, arquivoComprovante, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: arquivoComprovante.type,
+        });
+
+      if (erroUpload) {
+        console.error("Erro no upload:", erroUpload);
+        setMensagemComprovante(
+          `Não foi possível enviar o comprovante: ${erroUpload.message}`
+        );
+        return;
+      }
+
+      const { data, error: erroRegistro } = await supabase.rpc(
+        "registrar_comprovante_pix",
+        {
+          token_informado: token,
+          caminho_arquivo: caminhoArquivo,
+        }
+      );
+
+      if (erroRegistro || !data) {
+        console.error("Erro ao registrar comprovante:", erroRegistro);
+        setMensagemComprovante(
+          erroRegistro?.message ||
+            "O arquivo foi enviado, mas não foi possível registrar o comprovante."
+        );
+        return;
+      }
+
+      setComprovanteEnviado(true);
+      setArquivoComprovante(null);
+      setMensagemComprovante(
+        "Comprovante enviado com sucesso! O pagamento está em análise."
+      );
+    } catch (erro) {
+      console.error("Erro inesperado ao enviar comprovante:", erro);
+      setMensagemComprovante(
+        "Ocorreu um erro inesperado. Tente novamente."
+      );
+    } finally {
+      setEnviandoComprovante(false);
+    }
+  }
+
   function continuar() {
     if (!numero || !token) {
       alert(
         "Não foi possível localizar os dados da inscrição. Volte e tente novamente."
+      );
+      return;
+    }
+
+    if (
+      pagamento === "pix" &&
+      !inscricaoGratuita &&
+      !comprovanteEnviado
+    ) {
+      alert(
+        "Envie o comprovante do PIX antes de continuar."
       );
       return;
     }
@@ -284,9 +447,89 @@ export default function PagamentoPage() {
                       </p>
 
                       <p className="mt-1 text-sm font-semibold text-amber-800">
-                        Após realizar o pagamento, guarde o comprovante. A
-                        confirmação poderá levar alguns minutos.
+                        Após realizar o pagamento, anexe o comprovante abaixo.
+                        O pagamento ficará em análise até a conferência da
+                        organização.
                       </p>
+                    </div>
+
+                    <div className="mt-6 rounded-2xl border-2 border-dashed border-[#c38a38] bg-[#fffaf2] p-5 text-left">
+                      <h3 className="text-xl font-black text-[#3d2416]">
+                        📎 Enviar comprovante
+                      </h3>
+
+                      <p className="mt-2 text-sm font-semibold text-[#6e4a32]">
+                        Envie uma foto ou PDF. Formatos aceitos: JPG, PNG,
+                        WEBP e PDF, com até 10 MB.
+                      </p>
+
+                      {comprovanteEnviado ? (
+                        <div className="mt-5 rounded-xl border-2 border-emerald-600 bg-emerald-50 p-5 text-center">
+                          <p className="text-xl font-black text-emerald-700">
+                            ✅ Comprovante enviado
+                          </p>
+
+                          <p className="mt-2 text-sm font-semibold text-emerald-800">
+                            Seu pagamento está em análise. Após a aprovação,
+                            o QR Code será liberado para o check-in.
+                          </p>
+                        </div>
+                      ) : (
+                        <>
+                          <label className="mt-5 block cursor-pointer rounded-xl border-2 border-[#c38a38] bg-white p-4 text-center font-black transition hover:bg-amber-50">
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,application/pdf"
+                              onChange={selecionarComprovante}
+                              className="hidden"
+                            />
+
+                            📷 Selecionar foto ou PDF
+                          </label>
+
+                          {arquivoComprovante && (
+                            <div className="mt-4 rounded-xl bg-[#f8f1e6] p-4">
+                              <p className="text-sm font-black text-[#81542e]">
+                                Arquivo selecionado
+                              </p>
+
+                              <p className="mt-1 break-all font-semibold">
+                                {arquivoComprovante.name}
+                              </p>
+
+                              <p className="mt-1 text-sm text-[#6e4a32]">
+                                {(arquivoComprovante.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={enviarComprovantePix}
+                            disabled={
+                              !arquivoComprovante ||
+                              enviandoComprovante
+                            }
+                            className="mt-4 w-full rounded-xl bg-emerald-600 px-5 py-4 font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {enviandoComprovante
+                              ? "Enviando comprovante..."
+                              : "Enviar comprovante"}
+                          </button>
+                        </>
+                      )}
+
+                      {mensagemComprovante && (
+                        <div
+                          className={`mt-4 rounded-xl p-4 text-sm font-bold ${
+                            comprovanteEnviado
+                              ? "bg-emerald-100 text-emerald-800"
+                              : "bg-amber-100 text-amber-900"
+                          }`}
+                        >
+                          {mensagemComprovante}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )}
@@ -364,7 +607,8 @@ export default function PagamentoPage() {
                     </h2>
 
                     <p className="mt-3 font-semibold text-[#6e4a32]">
-                      Procure o Pastor Alexandre para retirar o carnê e realizar o pagamento.
+                      Procure o Pastor Alexandre para retirar o carnê e
+                      realizar o pagamento.
                     </p>
 
                     <div className="mt-5 rounded-xl bg-[#f8f1e6] p-4">
@@ -378,7 +622,8 @@ export default function PagamentoPage() {
                     </div>
 
                     <p className="mt-4 text-sm font-semibold text-[#6e4a32]">
-                      Sua inscrição ficará pendente até a confirmação do pagamento.
+                      Sua inscrição ficará pendente até a confirmação do
+                      pagamento.
                     </p>
                   </div>
                 )}
@@ -412,10 +657,20 @@ export default function PagamentoPage() {
             <button
               type="button"
               onClick={continuar}
-              disabled={!numero || !token}
+              disabled={
+                !numero ||
+                !token ||
+                (pagamento === "pix" &&
+                  !inscricaoGratuita &&
+                  !comprovanteEnviado)
+              }
               className="mt-7 w-full rounded-xl bg-gradient-to-r from-amber-400 to-yellow-600 px-6 py-4 text-lg font-black text-[#2b180d] shadow-lg transition hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              Continuar para o comprovante →
+              {pagamento === "pix" &&
+              !inscricaoGratuita &&
+              !comprovanteEnviado
+                ? "Envie o comprovante para continuar"
+                : "Continuar para o comprovante →"}
             </button>
 
             <p className="mt-4 text-xs font-semibold text-[#81542e]">
