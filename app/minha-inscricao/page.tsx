@@ -297,7 +297,7 @@ export default function MinhaInscricaoPage() {
               </div>
 
               <div className="rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm font-bold text-amber-200">
-                {formatarStatus(inscricao.status)}
+                {formatarStatus(inscricao.status_pagamento)}
               </div>
             </div>
 
