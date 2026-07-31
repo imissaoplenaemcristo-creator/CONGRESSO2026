@@ -4,7 +4,6 @@ import { useEffect, useRef, useState } from "react";
 import { supabase } from "@/app/lib/supabase";
 
 type Participante = {
-  id: string;
   qr_token: string | null;
   numero_inscricao: string | null;
   nome: string;
@@ -40,7 +39,6 @@ export default function CheckinPage() {
       .from("inscricoes")
       .select(
         `
-          id,
           qr_token,
           numero_inscricao,
           nome,
@@ -55,19 +53,17 @@ export default function CheckinPage() {
       .single();
 
     if (error || !data) {
-  console.error("ERRO SUPABASE:", error);
-  alert(JSON.stringify(error));
+      console.error("ERRO SUPABASE:", error);
+      setMensagem("QR Code inválido ou participante não encontrado.");
+      setParticipantes([]);
+      setCarregando(false);
 
-  setMensagem("QR Code inválido ou participante não encontrado.");
-  setParticipantes([]);
-  setCarregando(false);
+      setTimeout(() => {
+        leituraEmAndamento.current = false;
+      }, 2000);
 
-  setTimeout(() => {
-    leituraEmAndamento.current = false;
-  }, 2000);
-
-  return;
-}
+      return;
+    }
 
     if ("vibrate" in navigator) {
       navigator.vibrate(150);
@@ -100,7 +96,6 @@ export default function CheckinPage() {
       .from("inscricoes")
       .select(
         `
-          id,
           qr_token,
           numero_inscricao,
           nome,
@@ -165,12 +160,9 @@ export default function CheckinPage() {
           },
           aspectRatio: 1,
         },
-       async (codigoLido) => {
-  console.log("QR LIDO:", codigoLido);
-  alert(codigoLido);
-
-  await buscarParticipantePorQrToken(codigoLido);
-} ,
+        async (codigoLido) => {
+          await buscarParticipantePorQrToken(codigoLido);
+        },
         () => {
           // Ignora tentativas sem leitura válida.
         }
@@ -243,11 +235,10 @@ export default function CheckinPage() {
         checkin_realizado: true,
         checkin_em: horarioCheckin,
       })
-      .eq("id", participante.id)
+      .eq("qr_token", participante.qr_token)
       .eq("checkin_realizado", false)
       .select(
         `
-          id,
           qr_token,
           numero_inscricao,
           nome,
@@ -271,7 +262,7 @@ export default function CheckinPage() {
 
     setParticipantes((listaAtual) =>
       listaAtual.map((item) =>
-        item.id === data.id ? data : item
+        item.qr_token === data.qr_token ? data : item
       )
     );
 
@@ -413,7 +404,7 @@ export default function CheckinPage() {
       <div className="space-y-4">
         {participantes.map((participante) => (
           <div
-            key={participante.id}
+            key={participante.qr_token ?? participante.numero_inscricao ?? participante.nome}
             className="rounded-2xl border border-amber-300/20 bg-[#2a1a12] p-6"
           >
             <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
