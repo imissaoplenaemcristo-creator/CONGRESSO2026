@@ -380,7 +380,7 @@ export default function CheckinPage() {
         checkin_em: horarioCheckin,
       })
       .eq("qr_token", data.qr_token)
-      .eq("checkin_realizado", false)
+      .or("checkin_realizado.eq.false,checkin_realizado.is.null")
       .select(
         `
           qr_token,
@@ -531,7 +531,7 @@ export default function CheckinPage() {
         checkin_em: horarioCheckin,
       })
       .eq("qr_token", participante.qr_token)
-      .eq("checkin_realizado", false)
+      .or("checkin_realizado.eq.false,checkin_realizado.is.null")
       .select(
         `
           qr_token,
