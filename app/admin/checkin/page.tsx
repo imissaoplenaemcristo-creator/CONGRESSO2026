@@ -163,9 +163,12 @@ export default function CheckinPage() {
           },
           aspectRatio: 1,
         },
-        async (codigoLido) => {
-          await buscarParticipantePorQrToken(codigoLido);
-        },
+       async (codigoLido) => {
+  console.log("QR LIDO:", codigoLido);
+  alert(codigoLido);
+
+  await buscarParticipantePorQrToken(codigoLido);
+} ,
         () => {
           // Ignora tentativas sem leitura válida.
         }
