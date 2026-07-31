@@ -15,6 +15,10 @@ type Pagamento = {
   valor_inscricao: number | null;
   valor_pago: number | null;
   pagamento_confirmado_em: string | null;
+  comprovante_path: string | null;
+  comprovante_enviado_em: string | null;
+  comprovante_status: string | null;
+  comprovante_recusado_motivo: string | null;
 };
 
 type FiltroStatus =
@@ -34,7 +38,11 @@ const camposPagamento = `
   status_pagamento,
   valor_inscricao,
   valor_pago,
-  pagamento_confirmado_em
+  pagamento_confirmado_em,
+  comprovante_path,
+  comprovante_enviado_em,
+  comprovante_status,
+  comprovante_recusado_motivo
 `;
 
 export default function PagamentosPage() {
@@ -48,6 +56,12 @@ export default function PagamentosPage() {
     useState<string | null>(null);
   const [pagamentoSelecionado, setPagamentoSelecionado] =
     useState<Pagamento | null>(null);
+  const [comprovanteAberto, setComprovanteAberto] =
+    useState(false);
+  const [urlComprovante, setUrlComprovante] = useState("");
+  const [carregandoComprovante, setCarregandoComprovante] =
+    useState(false);
+  const [erroComprovante, setErroComprovante] = useState("");
 
   useEffect(() => {
     async function carregarPagamentos() {
@@ -197,6 +211,109 @@ export default function PagamentosPage() {
     const pagamentoAtualizado = data as Pagamento;
     atualizarPagamentoNaLista(pagamentoAtualizado);
     alert("Forma de pagamento atualizada com sucesso!");
+  }
+
+  async function abrirComprovante(pagamento: Pagamento) {
+    if (!pagamento.comprovante_path) {
+      alert("Este pagamento não possui comprovante enviado.");
+      return;
+    }
+
+    setComprovanteAberto(true);
+    setCarregandoComprovante(true);
+    setErroComprovante("");
+    setUrlComprovante("");
+
+    const { data, error } = await supabase.storage
+      .from("comprovantes-pix")
+      .createSignedUrl(pagamento.comprovante_path, 60 * 10);
+
+    setCarregandoComprovante(false);
+
+    if (error || !data?.signedUrl) {
+      console.error("ERRO AO ABRIR COMPROVANTE:", error);
+      setErroComprovante(
+        error?.message ||
+          "Não foi possível abrir o comprovante."
+      );
+      return;
+    }
+
+    setUrlComprovante(data.signedUrl);
+  }
+
+  function fecharComprovante() {
+    setComprovanteAberto(false);
+    setUrlComprovante("");
+    setErroComprovante("");
+  }
+
+  async function aprovarComprovante(pagamento: Pagamento) {
+    const confirmou = window.confirm(
+      `Confirma que o comprovante de ${pagamento.nome} foi conferido e o pagamento pode ser aprovado?`
+    );
+
+    if (!confirmou) {
+      return;
+    }
+
+    const valorConfirmado = Number(
+      pagamento.valor_inscricao ?? pagamento.valor_pago ?? 0
+    );
+
+    await atualizarPagamento(
+      pagamento,
+      "pago",
+      valorConfirmado
+    );
+
+    fecharComprovante();
+  }
+
+  async function recusarComprovante(pagamento: Pagamento) {
+    const motivo = window.prompt(
+      "Informe o motivo da recusa do comprovante:",
+      "Comprovante ilegível ou pagamento não localizado."
+    );
+
+    if (motivo === null) {
+      return;
+    }
+
+    const motivoLimpo = motivo.trim();
+
+    if (!motivoLimpo) {
+      alert("Informe o motivo da recusa.");
+      return;
+    }
+
+    const numero = String(pagamento.numero_inscricao);
+    setSalvandoNumero(numero);
+
+    const { data, error } = await supabase.rpc(
+      "admin_recusar_comprovante_pix",
+      {
+        p_numero_inscricao: Number(
+          pagamento.numero_inscricao
+        ),
+        p_motivo: motivoLimpo,
+      }
+    );
+
+    setSalvandoNumero(null);
+
+    if (error || !data) {
+      console.error("ERRO AO RECUSAR COMPROVANTE:", error);
+      alert(
+        error?.message ||
+          "Não foi possível recusar o comprovante."
+      );
+      return;
+    }
+
+    atualizarPagamentoNaLista(data as Pagamento);
+    fecharComprovante();
+    alert("Comprovante recusado. O participante poderá enviar outro.");
   }
 
   function confirmarComoPago(pagamento: Pagamento) {
@@ -413,6 +530,7 @@ export default function PagamentosPage() {
                   <th className="px-4 py-4">Inscrição</th>
                   <th className="px-4 py-4">Pago</th>
                   <th className="px-4 py-4">Restante</th>
+                  <th className="px-4 py-4">Comprovante</th>
                   <th className="px-4 py-4">Confirmação</th>
                   <th className="px-4 py-4 text-center">Ações</th>
                 </tr>
@@ -487,6 +605,22 @@ export default function PagamentosPage() {
                         {valorInscricao === 0
                           ? formatarMoeda(0)
                           : formatarMoeda(valorRestante)}
+                      </td>
+
+                      <td className="px-4 py-4">
+                        {pagamento.comprovante_path ? (
+                          <button
+                            type="button"
+                            onClick={() =>
+                              abrirComprovante(pagamento)
+                            }
+                            className="whitespace-nowrap rounded-lg border border-blue-400/30 bg-blue-500/10 px-3 py-2 text-xs font-bold text-blue-200 transition hover:bg-blue-500/20"
+                          >
+                            📎 Ver comprovante
+                          </button>
+                        ) : (
+                          <span className="text-white/40">—</span>
+                        )}
                       </td>
 
                       <td className="px-4 py-4">
@@ -681,10 +815,51 @@ export default function PagamentosPage() {
                       : "Não confirmado"
                   }
                 />
+
+                <Detalhe
+                  label="Comprovante PIX"
+                  valor={
+                    pagamentoSelecionado.comprovante_path
+                      ? "Comprovante recebido"
+                      : "Não enviado"
+                  }
+                />
+
+                <Detalhe
+                  label="Comprovante enviado em"
+                  valor={
+                    pagamentoSelecionado.comprovante_enviado_em
+                      ? formatarDataHora(
+                          pagamentoSelecionado.comprovante_enviado_em
+                        )
+                      : "Não enviado"
+                  }
+                />
+
+                {pagamentoSelecionado.comprovante_recusado_motivo && (
+                  <Detalhe
+                    label="Motivo da última recusa"
+                    valor={
+                      pagamentoSelecionado.comprovante_recusado_motivo
+                    }
+                  />
+                )}
               </div>
             </section>
 
             <div className="mt-8 grid gap-3">
+              {pagamentoSelecionado.comprovante_path && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    abrirComprovante(pagamentoSelecionado)
+                  }
+                  className="rounded-xl border border-blue-400/30 bg-blue-500/10 px-5 py-3 font-bold text-blue-200 hover:bg-blue-500/20"
+                >
+                  📎 Ver comprovante PIX
+                </button>
+              )}
+
               <button
                 type="button"
                 onClick={() =>
@@ -765,6 +940,114 @@ export default function PagamentosPage() {
             </div>
           </aside>
         </>
+      )}
+
+      {comprovanteAberto && pagamentoSelecionado && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/80 p-3 backdrop-blur-sm sm:p-6">
+          <button
+            type="button"
+            aria-label="Fechar comprovante"
+            onClick={fecharComprovante}
+            className="absolute inset-0"
+          />
+
+          <section className="relative z-10 flex max-h-[95vh] w-full max-w-5xl flex-col overflow-hidden rounded-3xl border border-amber-300/20 bg-[#21150f] shadow-2xl">
+            <header className="flex items-start justify-between gap-4 border-b border-amber-300/15 p-5 sm:p-6">
+              <div>
+                <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300">
+                  Comprovante PIX
+                </p>
+
+                <h2 className="mt-2 text-2xl font-black text-white">
+                  {pagamentoSelecionado.nome}
+                </h2>
+
+                <p className="mt-1 text-sm text-amber-100/60">
+                  Inscrição{" "}
+                  {String(
+                    pagamentoSelecionado.numero_inscricao
+                  ).padStart(5, "0")}
+                </p>
+              </div>
+
+              <button
+                type="button"
+                onClick={fecharComprovante}
+                className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-xl text-white hover:bg-white/10"
+              >
+                ✕
+              </button>
+            </header>
+
+            <div className="flex-1 overflow-y-auto bg-black/30 p-4 sm:p-6">
+              {carregandoComprovante && (
+                <div className="flex min-h-80 items-center justify-center">
+                  <div className="text-center">
+                    <div className="mx-auto h-10 w-10 animate-spin rounded-full border-4 border-amber-400/20 border-t-amber-400" />
+                    <p className="mt-4 text-amber-100/70">
+                      Abrindo comprovante...
+                    </p>
+                  </div>
+                </div>
+              )}
+
+              {erroComprovante && (
+                <div className="rounded-xl border border-red-400/30 bg-red-500/10 p-5 text-red-200">
+                  {erroComprovante}
+                </div>
+              )}
+
+              {urlComprovante &&
+                (pagamentoSelecionado.comprovante_path
+                  ?.toLowerCase()
+                  .endsWith(".pdf") ? (
+                  <iframe
+                    src={urlComprovante}
+                    title="Comprovante de pagamento"
+                    className="h-[65vh] w-full rounded-xl bg-white"
+                  />
+                ) : (
+                  <img
+                    src={urlComprovante}
+                    alt="Comprovante de pagamento PIX"
+                    className="mx-auto max-h-[65vh] w-auto max-w-full rounded-xl bg-white object-contain"
+                  />
+                ))}
+            </div>
+
+            <footer className="grid gap-3 border-t border-amber-300/15 bg-[#1a110d] p-4 sm:grid-cols-3 sm:p-6">
+              <button
+                type="button"
+                onClick={() =>
+                  aprovarComprovante(pagamentoSelecionado)
+                }
+                disabled={Boolean(salvandoNumero)}
+                className="rounded-xl bg-green-500 px-5 py-4 font-black text-white disabled:opacity-50"
+              >
+                ✅ Aprovar pagamento
+              </button>
+
+              <button
+                type="button"
+                onClick={() =>
+                  recusarComprovante(pagamentoSelecionado)
+                }
+                disabled={Boolean(salvandoNumero)}
+                className="rounded-xl border border-red-400/30 bg-red-500/10 px-5 py-4 font-black text-red-200 disabled:opacity-50"
+              >
+                ❌ Recusar comprovante
+              </button>
+
+              <button
+                type="button"
+                onClick={fecharComprovante}
+                className="rounded-xl border border-white/10 px-5 py-4 font-bold text-white hover:bg-white/10"
+              >
+                Fechar
+              </button>
+            </footer>
+          </section>
+        </div>
       )}
     </div>
   );
