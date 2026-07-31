@@ -386,8 +386,7 @@ export default function CheckinPage() {
     const { data: retornoRpc, error: erroAtualizacao } = await supabase
       .rpc("confirmar_checkin", {
         token_informado: data.qr_token,
-      })
-      .maybeSingle();
+      });
 
     if (erroAtualizacao || !retornoRpc) {
       console.error("Erro ao confirmar check-in:", erroAtualizacao);
@@ -503,8 +502,7 @@ export default function CheckinPage() {
     const { data: retornoRpc, error } = await supabase
       .rpc("confirmar_checkin", {
         token_informado: participante.qr_token,
-      })
-      .maybeSingle();
+      });
 
     setCarregando(false);
 
