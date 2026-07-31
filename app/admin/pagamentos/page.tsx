@@ -113,34 +113,35 @@ export default function PagamentosPage() {
     const confirmadoEm =
       novoStatus === "pago" ? new Date().toISOString() : null;
 
-    const { data, error } = await supabase
-      .from("inscricoes")
-      .update({
-        status_pagamento: novoStatus,
-        valor_pago: novoStatus === "pago" ? valor : null,
-        pagamento_confirmado_em: confirmadoEm,
-      })
-      .eq("numero_inscricao", pagamento.numero_inscricao)
-      .select(camposPagamento)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc(
+      "atualizar_pagamento_admin",
+      {
+        p_numero_inscricao: Number(pagamento.numero_inscricao),
+        p_status_pagamento: novoStatus,
+        p_valor_pago: novoStatus === "pago" ? valor : null,
+        p_pagamento_confirmado_em: confirmadoEm,
+        p_forma_pagamento: null,
+      }
+    );
 
     setSalvandoNumero(null);
 
-   if (error) {
-  console.error(error);
-  alert(
-    `Não foi possível atualizar o pagamento:\n\n${error.message}`
-  );
-  return;
-}
+    if (error) {
+      console.error("ERRO AO ATUALIZAR PAGAMENTO:", error);
+      alert(
+        `Não foi possível atualizar o pagamento:\n\n${error.message}`
+      );
+      return;
+    }
 
-if (!data) {
-  alert("Nenhum registro foi atualizado.");
-  return;
-}
+    if (!data) {
+      alert("O Supabase não retornou o pagamento atualizado.");
+      return;
+    }
 
-atualizarPagamentoNaLista(data as Pagamento);
-alert("Pagamento atualizado com sucesso!");
+    const pagamentoAtualizado = data as Pagamento;
+    atualizarPagamentoNaLista(pagamentoAtualizado);
+    alert("Pagamento atualizado com sucesso!");
   }
 
   async function alterarFormaPagamento(
@@ -167,19 +168,21 @@ alert("Pagamento atualizado com sucesso!");
     const numero = String(pagamento.numero_inscricao);
     setSalvandoNumero(numero);
 
-    const { data, error } = await supabase
-      .from("inscricoes")
-      .update({
-        forma_pagamento: formaLimpa,
-      })
-      .eq("numero_inscricao", pagamento.numero_inscricao)
-      .select(camposPagamento)
-      .maybeSingle();
+    const { data, error } = await supabase.rpc(
+      "atualizar_pagamento_admin",
+      {
+        p_numero_inscricao: Number(pagamento.numero_inscricao),
+        p_status_pagamento: null,
+        p_valor_pago: null,
+        p_pagamento_confirmado_em: null,
+        p_forma_pagamento: formaLimpa,
+      }
+    );
 
     setSalvandoNumero(null);
 
     if (error) {
-      console.error(error);
+      console.error("ERRO AO ALTERAR FORMA DE PAGAMENTO:", error);
       alert(
         `Não foi possível alterar a forma de pagamento:\n\n${error.message}`
       );
@@ -187,11 +190,12 @@ alert("Pagamento atualizado com sucesso!");
     }
 
     if (!data) {
-      alert("Nenhum registro foi atualizado.");
+      alert("O Supabase não retornou o pagamento atualizado.");
       return;
     }
 
-    atualizarPagamentoNaLista(data as Pagamento);
+    const pagamentoAtualizado = data as Pagamento;
+    atualizarPagamentoNaLista(pagamentoAtualizado);
     alert("Forma de pagamento atualizada com sucesso!");
   }
 
