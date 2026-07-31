@@ -424,25 +424,59 @@ export default function SucessoPage() {
               </div>
             </div>
 
-            <div className="mt-7 rounded-2xl border border-[#d9b276] bg-white p-5 shadow-xl">
-              <p className="text-sm font-black uppercase tracking-[0.15em] text-[#81542e]">
-                QR Code para check-in
-              </p>
+            {statusPagamento === "confirmado" || statusPagamento === "gratuito" ? (
+  <div className="mt-7 rounded-2xl border border-[#d9b276] bg-white p-5 shadow-xl">
+    <p className="text-sm font-black uppercase tracking-[0.15em] text-[#81542e]">
+      QR Code para check-in
+    </p>
 
-              {carregando ? (
-                <p className="mt-6 font-semibold">Gerando QR Code...</p>
-              ) : qrCode ? (
-                <img
-                  src={qrCode}
-                  alt="QR Code de check-in"
-                  className="mx-auto mt-4 h-60 w-60 rounded-2xl bg-white p-3 shadow-lg"
-                />
-              ) : (
-                <p className="mt-6 font-semibold text-red-700">
-                  Não foi possível gerar o QR Code.
-                </p>
-              )}
-            </div>
+    {carregando ? (
+      <p className="mt-6 font-semibold">Gerando QR Code...</p>
+    ) : qrCode ? (
+      <img
+        src={qrCode}
+        alt="QR Code de check-in"
+        className="mx-auto mt-4 h-60 w-60 rounded-2xl bg-white p-3 shadow-lg"
+      />
+    ) : (
+      <p className="mt-6 font-semibold text-red-700">
+        Não foi possível gerar o QR Code.
+      </p>
+    )}
+  </div>
+) : statusPagamento === "analise" ? (
+  <div className="mt-7 rounded-2xl border-2 border-orange-300 bg-orange-50 p-6 text-center">
+    <h3 className="text-2xl font-black text-orange-700">
+      🟡 Pagamento em análise
+    </h3>
+
+    <p className="mt-4 text-orange-900">
+      Recebemos seu comprovante de pagamento.
+    </p>
+
+    <p className="mt-2 text-orange-900">
+      Nossa equipe fará a conferência em breve.
+    </p>
+
+    <p className="mt-4 font-bold text-orange-800">
+      Após a aprovação, seu QR Code será liberado automaticamente.
+    </p>
+  </div>
+) : (
+  <div className="mt-7 rounded-2xl border-2 border-yellow-300 bg-yellow-50 p-6 text-center">
+    <h3 className="text-2xl font-black text-yellow-700">
+      🟡 Aguardando pagamento
+    </h3>
+
+    <p className="mt-4 text-yellow-900">
+      Seu pagamento ainda não foi confirmado.
+    </p>
+
+    <p className="mt-2 text-yellow-900">
+      Assim que o pagamento for aprovado, seu QR Code será liberado automaticamente.
+    </p>
+  </div>
+)}
 
             <div className="mt-6 rounded-2xl border-2 border-yellow-400 bg-yellow-50 p-5 text-left text-yellow-950">
               <p className="text-lg font-black">⚠️ Este QR Code é individual.</p>
