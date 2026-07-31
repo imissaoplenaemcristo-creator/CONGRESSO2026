@@ -342,7 +342,7 @@ export default function Home() {
             </p>
 
             <ul className="mt-4 space-y-2">
-              <li>✅ CPF ou RG</li>
+              <li>✅ CPF</li>
               <li>✅ Telefone</li>
               <li>✅ Contato de emergência</li>
               <li>

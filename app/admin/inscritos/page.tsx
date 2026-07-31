@@ -571,7 +571,7 @@ export default function InscritosPage() {
               <>
                 <Secao titulo="📋 Dados pessoais">
                   <Detalhe
-                    label="CPF ou RG"
+                    label="CPF"
                     valor={inscricaoSelecionada.cpf}
                   />
 
