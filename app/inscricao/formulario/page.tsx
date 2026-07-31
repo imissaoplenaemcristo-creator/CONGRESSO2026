@@ -24,7 +24,6 @@ type FormData = {
   necessidadeEspecial: string;
   contatoEmergenciaNome: string;
   contatoEmergenciaTelefone: string;
-  menorIdade: string;
   responsavelNome: string;
   responsavelTelefone: string;
   todosOsDias: string;
@@ -50,7 +49,6 @@ const initialData: FormData = {
   necessidadeEspecial: "",
   contatoEmergenciaNome: "",
   contatoEmergenciaTelefone: "",
-  menorIdade: "",
   responsavelNome: "",
   responsavelTelefone: "",
   todosOsDias: "",
@@ -96,6 +94,35 @@ function calcularValorInscricao(dataNascimento: string): number {
   return 350;
 }
 
+function calcularIdadeNoCongresso(dataNascimento: string): number {
+  if (!dataNascimento) {
+    return 0;
+  }
+
+  const [ano, mes, dia] = dataNascimento.split("-").map(Number);
+
+  if (!ano || !mes || !dia) {
+    return 0;
+  }
+
+  const dataDoCongresso = new Date(2026, 10, 19);
+  const nascimento = new Date(ano, mes - 1, dia);
+
+  let idade =
+    dataDoCongresso.getFullYear() - nascimento.getFullYear();
+
+  const aindaNaoFezAniversario =
+    dataDoCongresso.getMonth() < nascimento.getMonth() ||
+    (dataDoCongresso.getMonth() === nascimento.getMonth() &&
+      dataDoCongresso.getDate() < nascimento.getDate());
+
+  if (aindaNaoFezAniversario) {
+    idade--;
+  }
+
+  return idade;
+}
+
 export default function FormularioPage() {
   const router = useRouter();
 
@@ -105,6 +132,10 @@ export default function FormularioPage() {
   const [enviando, setEnviando] = useState(false);
   const [termoAberto, setTermoAberto] = useState(false);
   const [termoVisualizado, setTermoVisualizado] = useState(false);
+
+  const menorDeIdade =
+    Boolean(form.nascimento) &&
+    calcularIdadeNoCongresso(form.nascimento) < 18;
 
   const totalEtapas = 8;
   const progresso = Math.round((etapa / totalEtapas) * 100);
@@ -240,26 +271,17 @@ export default function FormularioPage() {
         return;
       }
 
-      if (!form.menorIdade) {
-        setErro(
-          "Informe se o participante é menor de 18 anos."
-        );
-        return;
-      }
-
-      if (form.menorIdade === "sim") {
+      if (menorDeIdade) {
         if (form.responsavelNome.trim().length < 3) {
           setErro(
-            "Informe o nome completo do responsável."
+            "Informe o nome completo do responsável legal."
           );
           return;
         }
 
-        if (
-          form.responsavelTelefone.trim().length < 8
-        ) {
+        if (form.responsavelTelefone.trim().length < 8) {
           setErro(
-            "Informe um telefone válido para o responsável."
+            "Informe um telefone válido para o responsável legal."
           );
           return;
         }
@@ -376,15 +398,15 @@ export default function FormularioPage() {
             contato_emergencia_telefone:
               form.contatoEmergenciaTelefone,
 
-            menor_idade: form.menorIdade,
+            menor_idade: menorDeIdade ? "sim" : "nao",
 
             responsavel_nome:
-              form.menorIdade === "sim"
+              menorDeIdade
                 ? form.responsavelNome
                 : "",
 
             responsavel_telefone:
-              form.menorIdade === "sim"
+              menorDeIdade
                 ? form.responsavelTelefone
                 : "",
 
@@ -737,45 +759,35 @@ export default function FormularioPage() {
                     }
                   />
 
-                  <PerguntaSimNao
-                    label="O participante é menor de 18 anos?"
-                    value={form.menorIdade}
-                    onChange={(valor) =>
-                      atualizarCampo(
-                        "menorIdade",
-                        valor
-                      )
-                    }
-                  />
+                  {menorDeIdade && (
+                    <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-5">
+                      <h3 className="font-bold text-amber-300">
+                        👨‍👩‍👧 Responsável legal
+                      </h3>
 
-                  {form.menorIdade === "sim" && (
-                    <>
-                      <Campo
-                        label="Nome do responsável"
-                        value={
-                          form.responsavelNome
-                        }
-                        onChange={(valor) =>
-                          atualizarCampo(
-                            "responsavelNome",
-                            valor
-                          )
-                        }
-                      />
+                      <p className="mt-2 text-sm leading-6 text-amber-100">
+                        Por ser menor de 18 anos, é obrigatório informar os
+                        dados do responsável legal.
+                      </p>
 
-                      <Campo
-                        label="Telefone do responsável"
-                        value={
-                          form.responsavelTelefone
-                        }
-                        onChange={(valor) =>
-                          atualizarCampo(
-                            "responsavelTelefone",
-                            valor
-                          )
-                        }
-                      />
-                    </>
+                      <div className="mt-5 space-y-5">
+                        <Campo
+                          label="Nome completo do responsável legal"
+                          value={form.responsavelNome}
+                          onChange={(valor) =>
+                            atualizarCampo("responsavelNome", valor)
+                          }
+                        />
+
+                        <Campo
+                          label="Telefone do responsável legal"
+                          value={form.responsavelTelefone}
+                          onChange={(valor) =>
+                            atualizarCampo("responsavelTelefone", valor)
+                          }
+                        />
+                      </div>
+                    </div>
                   )}
                 </div>
               </section>
@@ -1056,17 +1068,7 @@ export default function FormularioPage() {
                     }
                   />
 
-                  <ItemRevisao
-                    titulo="Menor de 18 anos?"
-                    valor={
-                      form.menorIdade === "sim"
-                        ? "Sim"
-                        : "Não"
-                    }
-                  />
-
-                  {form.menorIdade ===
-                    "sim" && (
+                  {menorDeIdade && (
                     <>
                       <ItemRevisao
                         titulo="Nome do responsável"
