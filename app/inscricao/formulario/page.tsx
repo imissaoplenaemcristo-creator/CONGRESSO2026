@@ -305,21 +305,21 @@ export default function FormularioPage() {
     }
   }
 
-function voltar() {
-  if (etapa === 1) {
-    router.push("/inscricao");
-    return;
+  function voltar() {
+    if (etapa === 1) {
+      router.push("/inscricao");
+      return;
+    }
+
+    setErro("");
+    setEtapa((anterior) => anterior - 1);
+
+    window.scrollTo({
+      top: 0,
+      behavior: "smooth",
+    });
   }
 
-  setErro("");
-
-  setEtapa((anterior) => anterior - 1);
-
-  window.scrollTo({
-    top: 0,
-    behavior: "smooth",
-  });
-}
   async function salvarInscricao() {
     if (enviando) {
       return;
@@ -453,19 +453,18 @@ function voltar() {
   }
 
   return (
-   <main className="min-h-screen bg-gradient-to-b from-[#21150f] via-[#4a2d18] to-[#160e0a] px-6 py-10 text-white">
-  <div className="mx-auto max-w-3xl">
-
-    <button
+    <main className="min-h-screen bg-gradient-to-b from-[#21150f] via-[#4a2d18] to-[#160e0a] px-4 py-8 text-white sm:px-6 sm:py-10">
+      <div className="mx-auto max-w-3xl">
+        <button
       type="button"
       onClick={() => router.push("/")}
       className="inline-flex items-center gap-2 text-sm font-semibold text-amber-300 transition hover:text-amber-200"
     >
       ← Voltar para informações da inscrição
-    </button>
+        </button>
 
-    <div className="mt-6 rounded-3xl border border-amber-200/20 bg-black/30 p-6 shadow-2xl md:p-10">
-          <div className="flex items-center justify-between gap-4">
+        <div className="mt-6 rounded-3xl border border-amber-200/20 bg-black/30 p-5 shadow-2xl sm:p-6 md:p-10">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <p className="text-sm uppercase tracking-[0.25em] text-amber-300">
                 Congresso 2026
@@ -822,15 +821,13 @@ function voltar() {
                     ["pix", "PIX"],
                     ["dinheiro", "Dinheiro"],
                     ["cartao", "Cartão"],
+                    ["carne", "Carnê"],
                   ].map(([valor, titulo]) => (
                     <button
                       type="button"
                       key={valor}
                       onClick={() =>
-                        atualizarCampo(
-                          "pagamento",
-                          valor
-                        )
+                        atualizarCampo("pagamento", valor)
                       }
                       className={`rounded-2xl border p-5 text-left transition ${
                         form.pagamento === valor
@@ -847,23 +844,25 @@ function voltar() {
 
                 {form.pagamento === "pix" && (
                   <Aviso>
-                    Após concluir a inscrição, você
-                    verá o QR Code e a chave PIX.
+                    Após concluir a inscrição, você verá o QR Code e a chave PIX.
                   </Aviso>
                 )}
 
-                {form.pagamento ===
-                  "dinheiro" && (
+                {form.pagamento === "dinheiro" && (
                   <Aviso>
-                    Para pagamento em dinheiro,
-                    procure a irmã Matha.
+                    Para pagamento em dinheiro, procure a irmã Martha.
                   </Aviso>
                 )}
 
                 {form.pagamento === "cartao" && (
                   <Aviso>
-                    Para pagamento no cartão,
-                    procure o pastor Alexandre.
+                    Para pagamento no cartão, procure o Pastor Alexandre.
+                  </Aviso>
+                )}
+
+                {form.pagamento === "carne" && (
+                  <Aviso>
+                    Para pagamento por carnê, procure o Pastor Alexandre.
                   </Aviso>
                 )}
               </section>
@@ -1049,14 +1048,7 @@ function voltar() {
 
                   <ItemRevisao
                     titulo="Forma de pagamento"
-                    valor={
-                      form.pagamento === "pix"
-                        ? "PIX"
-                        : form.pagamento ===
-                            "dinheiro"
-                          ? "Dinheiro"
-                          : "Cartão"
-                    }
+                    valor={formatarFormaPagamento(form.pagamento)}
                   />
 
                   <ItemRevisao
@@ -1175,6 +1167,17 @@ function PerguntaSimNao({
       </div>
     </div>
   );
+}
+
+function formatarFormaPagamento(pagamento: string) {
+  const formas: Record<string, string> = {
+    pix: "PIX",
+    dinheiro: "Dinheiro",
+    cartao: "Cartão",
+    carne: "Carnê",
+  };
+
+  return formas[pagamento] ?? "Não informado";
 }
 
 function Aviso({
