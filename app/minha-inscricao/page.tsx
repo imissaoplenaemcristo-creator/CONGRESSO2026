@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { FormEvent, useState } from "react";
+import QRCode from "qrcode";
 import { supabase } from "../lib/supabase";
 
 type Inscricao = {
@@ -17,6 +18,7 @@ type Inscricao = {
   pagamento_confirmado_em: string | null;
   checkin_realizado: boolean | null;
   checkin_em: string | null;
+  qr_token: string | null;
 };
 
 function formatarMoeda(valor: number | null) {
@@ -107,6 +109,7 @@ export default function MinhaInscricaoPage() {
   const [erro, setErro] = useState("");
   const [consultando, setConsultando] = useState(false);
   const [consultou, setConsultou] = useState(false);
+  const [qrCode, setQrCode] = useState("");
 
   async function consultarInscricao(event: FormEvent) {
     event.preventDefault();
@@ -153,7 +156,35 @@ export default function MinhaInscricaoPage() {
         return;
       }
 
-      setInscricao(resultado as Inscricao);
+      const inscricaoEncontrada = resultado as Inscricao;
+      setInscricao(inscricaoEncontrada);
+
+      const statusPagamento = String(
+        inscricaoEncontrada.status_pagamento ?? ""
+      ).toLowerCase();
+
+      const qrLiberado =
+        statusPagamento === "pago" ||
+        statusPagamento === "confirmado" ||
+        statusPagamento === "gratuito" ||
+        statusPagamento === "isento" ||
+        statusPagamento === "cortesia" ||
+        Number(inscricaoEncontrada.valor_inscricao ?? 0) === 0;
+
+      if (qrLiberado && inscricaoEncontrada.qr_token) {
+        const imagem = await QRCode.toDataURL(
+          inscricaoEncontrada.qr_token,
+          {
+            width: 600,
+            margin: 2,
+            errorCorrectionLevel: "H",
+          }
+        );
+
+        setQrCode(imagem);
+      } else {
+        setQrCode("");
+      }
     } catch (erroInesperado) {
       console.error(
         "Erro inesperado na consulta:",
@@ -173,6 +204,7 @@ export default function MinhaInscricaoPage() {
     setInscricao(null);
     setErro("");
     setConsultou(false);
+    setQrCode("");
   }
 
   return (
@@ -265,7 +297,7 @@ export default function MinhaInscricaoPage() {
               </div>
 
               <div className="rounded-full border border-amber-300/20 bg-amber-300/10 px-4 py-2 text-sm font-bold text-amber-200">
-                {formatarStatus(inscricao.status_pagamento)}
+                {formatarStatus(inscricao.status)}
               </div>
             </div>
 
@@ -331,6 +363,28 @@ export default function MinhaInscricaoPage() {
                 />
               )}
             </div>
+
+            {qrCode ? (
+              <div className="mt-8 rounded-3xl border border-emerald-300/20 bg-emerald-500/10 p-6 text-center">
+                <h3 className="text-xl font-black text-emerald-300">
+                  🎫 QR Code liberado
+                </h3>
+
+                <img
+                  src={qrCode}
+                  alt="QR Code para check-in"
+                  className="mx-auto mt-5 h-60 w-60 rounded-2xl bg-white p-3"
+                />
+
+                <p className="mt-4 text-sm text-amber-50/70">
+                  Apresente este QR Code no check-in com um documento oficial com foto.
+                </p>
+              </div>
+            ) : (
+              <div className="mt-8 rounded-2xl border border-yellow-300/20 bg-yellow-500/10 p-5 text-center text-yellow-100">
+                O QR Code será liberado após a confirmação do pagamento.
+              </div>
+            )}
 
             <button
               type="button"

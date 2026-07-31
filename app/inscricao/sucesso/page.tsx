@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useEffect, useMemo, useState } from "react";
 import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
+import { supabase } from "../../lib/supabase";
 
 type StatusPagamento =
   | "pago"
@@ -87,19 +88,46 @@ export default function SucessoPage() {
 
         setNumero(numeroRecebido);
         setNome(nomeRecebido);
-        setStatusPagamento(normalizarStatus(statusRecebido));
+
+        let statusAtual = normalizarStatus(statusRecebido);
 
         if (tokenRecebido) {
-          const imagemQrCode = await QRCode.toDataURL(tokenRecebido, {
-            width: 600,
-            margin: 2,
-            errorCorrectionLevel: "H",
-          });
+          const { data } = await supabase.rpc(
+            "consultar_status_comprovante_pix",
+            {
+              token_informado: tokenRecebido,
+            }
+          );
 
-          setQrCode(imagemQrCode);
+          if (data?.status_pagamento) {
+            statusAtual = normalizarStatus(
+              String(data.status_pagamento)
+            );
+          }
+
+          const qrLiberado =
+            statusAtual === "confirmado" ||
+            statusAtual === "gratuito";
+
+          if (qrLiberado) {
+            const imagemQrCode = await QRCode.toDataURL(
+              tokenRecebido,
+              {
+                width: 600,
+                margin: 2,
+                errorCorrectionLevel: "H",
+              }
+            );
+
+            setQrCode(imagemQrCode);
+          } else {
+            setQrCode("");
+          }
         }
+
+        setStatusPagamento(statusAtual);
       } catch (erro) {
-        console.error("Erro ao gerar o QR Code:", erro);
+        console.error("Erro ao carregar a inscrição:", erro);
       } finally {
         setCarregando(false);
       }
@@ -150,7 +178,18 @@ export default function SucessoPage() {
 
   const numeroFormatado = numero ? numero.padStart(5, "0") : "-----";
 
+  const qrLiberado =
+    statusPagamento === "confirmado" ||
+    statusPagamento === "gratuito";
+
   async function baixarComprovante() {
+    if (!qrLiberado) {
+      alert(
+        "O comprovante com QR Code será liberado após a confirmação do pagamento."
+      );
+      return;
+    }
+
     if (!numero || !qrCode) {
       alert("Aguarde o carregamento dos dados da inscrição.");
       return;
@@ -424,59 +463,25 @@ export default function SucessoPage() {
               </div>
             </div>
 
-            {statusPagamento === "confirmado" || statusPagamento === "gratuito" ? (
-  <div className="mt-7 rounded-2xl border border-[#d9b276] bg-white p-5 shadow-xl">
-    <p className="text-sm font-black uppercase tracking-[0.15em] text-[#81542e]">
-      QR Code para check-in
-    </p>
+            <div className="mt-7 rounded-2xl border border-[#d9b276] bg-white p-5 shadow-xl">
+              <p className="text-sm font-black uppercase tracking-[0.15em] text-[#81542e]">
+                QR Code para check-in
+              </p>
 
-    {carregando ? (
-      <p className="mt-6 font-semibold">Gerando QR Code...</p>
-    ) : qrCode ? (
-      <img
-        src={qrCode}
-        alt="QR Code de check-in"
-        className="mx-auto mt-4 h-60 w-60 rounded-2xl bg-white p-3 shadow-lg"
-      />
-    ) : (
-      <p className="mt-6 font-semibold text-red-700">
-        Não foi possível gerar o QR Code.
-      </p>
-    )}
-  </div>
-) : statusPagamento === "analise" ? (
-  <div className="mt-7 rounded-2xl border-2 border-orange-300 bg-orange-50 p-6 text-center">
-    <h3 className="text-2xl font-black text-orange-700">
-      🟡 Pagamento em análise
-    </h3>
-
-    <p className="mt-4 text-orange-900">
-      Recebemos seu comprovante de pagamento.
-    </p>
-
-    <p className="mt-2 text-orange-900">
-      Nossa equipe fará a conferência em breve.
-    </p>
-
-    <p className="mt-4 font-bold text-orange-800">
-      Após a aprovação, seu QR Code será liberado automaticamente.
-    </p>
-  </div>
-) : (
-  <div className="mt-7 rounded-2xl border-2 border-yellow-300 bg-yellow-50 p-6 text-center">
-    <h3 className="text-2xl font-black text-yellow-700">
-      🟡 Aguardando pagamento
-    </h3>
-
-    <p className="mt-4 text-yellow-900">
-      Seu pagamento ainda não foi confirmado.
-    </p>
-
-    <p className="mt-2 text-yellow-900">
-      Assim que o pagamento for aprovado, seu QR Code será liberado automaticamente.
-    </p>
-  </div>
-)}
+              {carregando ? (
+                <p className="mt-6 font-semibold">Gerando QR Code...</p>
+              ) : qrCode ? (
+                <img
+                  src={qrCode}
+                  alt="QR Code de check-in"
+                  className="mx-auto mt-4 h-60 w-60 rounded-2xl bg-white p-3 shadow-lg"
+                />
+              ) : (
+                <p className="mt-6 font-semibold text-red-700">
+                  Não foi possível gerar o QR Code.
+                </p>
+              )}
+            </div>
 
             <div className="mt-6 rounded-2xl border-2 border-yellow-400 bg-yellow-50 p-5 text-left text-yellow-950">
               <p className="text-lg font-black">⚠️ Este QR Code é individual.</p>
@@ -492,7 +497,7 @@ export default function SucessoPage() {
           <button
             type="button"
             onClick={baixarComprovante}
-            disabled={!numero || !qrCode}
+            disabled={!numero || !qrCode || !qrLiberado}
             className="rounded-xl border border-amber-200/20 px-6 py-3 font-semibold transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             📄 Baixar comprovante
@@ -501,7 +506,7 @@ export default function SucessoPage() {
           <button
             type="button"
             onClick={compartilharComprovante}
-            disabled={!numero || compartilhando}
+            disabled={!numero || compartilhando || !qrLiberado}
             className="rounded-xl border border-amber-200/20 px-6 py-3 font-semibold transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             {compartilhando ? "Compartilhando..." : "📲 Compartilhar comprovante"}
@@ -510,7 +515,8 @@ export default function SucessoPage() {
           <button
             type="button"
             onClick={() => window.print()}
-            className="rounded-xl border border-amber-200/20 px-6 py-3 font-semibold transition hover:bg-white/10"
+            disabled={!qrLiberado}
+            className="rounded-xl border border-amber-200/20 px-6 py-3 font-semibold transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
           >
             🖨️ Imprimir comprovante
           </button>
