@@ -91,8 +91,16 @@ function formatarStatus(status: string | null) {
   return nomes[status.toLowerCase()] ?? status;
 }
 
+function formatarCpfDigitado(valor: string) {
+  const numeros = valor.replace(/\D/g, "").slice(0, 11);
+
+  return numeros
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
 export default function MinhaInscricaoPage() {
-  const [numero, setNumero] = useState("");
   const [documento, setDocumento] = useState("");
   const [inscricao, setInscricao] =
     useState<Inscricao | null>(null);
@@ -107,19 +115,10 @@ export default function MinhaInscricaoPage() {
     setInscricao(null);
     setConsultou(false);
 
-    const numeroConvertido = Number(numero);
+    const cpfSomenteNumeros = documento.replace(/\D/g, "");
 
-    if (
-      !numero.trim() ||
-      !Number.isInteger(numeroConvertido) ||
-      numeroConvertido <= 0
-    ) {
-      setErro("Informe um número de inscrição válido.");
-      return;
-    }
-
-    if (documento.trim().length < 5) {
-      setErro("Informe o CPF ou RG utilizado na inscrição.");
+    if (cpfSomenteNumeros.length !== 11) {
+      setErro("Informe um CPF válido com 11 números.");
       return;
     }
 
@@ -127,10 +126,9 @@ export default function MinhaInscricaoPage() {
 
     try {
       const { data, error } = await supabase.rpc(
-        "consultar_inscricao",
+        "consultar_inscricao_por_cpf",
         {
-          numero_informado: numeroConvertido,
-          documento_informado: documento.trim(),
+          cpf_informado: cpfSomenteNumeros,
         }
       );
 
@@ -150,7 +148,7 @@ export default function MinhaInscricaoPage() {
 
       if (!resultado) {
         setErro(
-          "Inscrição não encontrada. Confira o número e o CPF ou RG informado."
+          "Não encontramos uma inscrição com esse CPF. Confira os números e tente novamente."
         );
         return;
       }
@@ -171,7 +169,6 @@ export default function MinhaInscricaoPage() {
   }
 
   function limparConsulta() {
-    setNumero("");
     setDocumento("");
     setInscricao(null);
     setErro("");
@@ -198,9 +195,8 @@ export default function MinhaInscricaoPage() {
           </h1>
 
           <p className="mt-3 leading-7 text-amber-50/70">
-            Consulte sua inscrição informando o número recebido
-            no cadastro e o mesmo CPF ou RG utilizado no
-            formulário.
+            Consulte sua inscrição informando apenas o CPF utilizado
+            no cadastro.
           </p>
 
           <form
@@ -209,36 +205,25 @@ export default function MinhaInscricaoPage() {
           >
             <label className="block">
               <span className="mb-2 block font-semibold">
-                Número da inscrição
-              </span>
-
-              <input
-                type="number"
-                min="1"
-                inputMode="numeric"
-                value={numero}
-                onChange={(event) =>
-                  setNumero(event.target.value)
-                }
-                placeholder="Exemplo: 25"
-                className="w-full rounded-xl border border-amber-200/15 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-amber-400"
-              />
-            </label>
-
-            <label className="block">
-              <span className="mb-2 block font-semibold">
-                CPF ou RG
+                CPF
               </span>
 
               <input
                 type="text"
+                inputMode="numeric"
+                autoComplete="off"
+                maxLength={14}
                 value={documento}
                 onChange={(event) =>
-                  setDocumento(event.target.value)
+                  setDocumento(formatarCpfDigitado(event.target.value))
                 }
-                placeholder="Digite o documento usado na inscrição"
-                className="w-full rounded-xl border border-amber-200/15 bg-white/5 px-4 py-3 text-white outline-none transition placeholder:text-white/30 focus:border-amber-400"
+                placeholder="000.000.000-00"
+                className="w-full rounded-xl border border-amber-200/15 bg-white/5 px-4 py-4 text-lg text-white outline-none transition placeholder:text-white/30 focus:border-amber-400"
               />
+
+              <span className="mt-2 block text-sm text-amber-50/50">
+                Digite o mesmo CPF usado no momento da inscrição.
+              </span>
             </label>
 
             {erro && (
