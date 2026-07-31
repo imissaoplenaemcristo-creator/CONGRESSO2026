@@ -233,44 +233,52 @@ export default function InscritosPage() {
     alert("Inscrição atualizada com sucesso!");
   }
 
-  async function realizarCheckin(inscricao: Inscricao) {
-    if (inscricao.checkin_realizado) {
-      alert("Este participante já realizou o check-in.");
-      return;
-    }
-
-    const confirmou = window.confirm(
-      `Confirmar o check-in de ${inscricao.nome}?`
-    );
-
-    if (!confirmou) {
-      return;
-    }
-
-    setFazendoCheckin(true);
-
-    const { data, error } = await supabase
-      .from("inscricoes")
-      .update({
-        checkin_realizado: true,
-        checkin_em: new Date().toISOString(),
-      })
-      .eq("numero_inscricao", inscricao.numero_inscricao)
-      .select(camposInscricao)
-      .single();
-
-    setFazendoCheckin(false);
-
-    if (error) {
-      console.error(error);
-      alert("Não foi possível realizar o check-in.");
-      return;
-    }
-
-    atualizarInscricaoNaLista(data as Inscricao);
-
-    alert("Check-in realizado com sucesso!");
+async function realizarCheckin(inscricao: Inscricao) {
+  if (inscricao.checkin_realizado) {
+    alert("Este participante já realizou o check-in.");
+    return;
   }
+
+  if (!inscricao.qr_token) {
+    alert("Este participante não possui QR Code.");
+    return;
+  }
+
+  const confirmou = window.confirm(
+    `Confirmar o check-in de ${inscricao.nome}?`
+  );
+
+  if (!confirmou) {
+    return;
+  }
+
+  setFazendoCheckin(true);
+
+  const { data: retornoRpc, error } = await supabase
+    .rpc("confirmar_checkin", {
+      token_informado: inscricao.qr_token,
+    })
+    .maybeSingle();
+
+  setFazendoCheckin(false);
+
+  if (error) {
+    console.error("Erro ao realizar check-in:", error);
+    alert(error.message || "Não foi possível realizar o check-in.");
+    return;
+  }
+
+  if (!retornoRpc) {
+    alert("O banco de dados não retornou o participante atualizado.");
+    return;
+  }
+
+  const inscricaoAtualizada = retornoRpc as Inscricao;
+
+  atualizarInscricaoNaLista(inscricaoAtualizada);
+
+  alert("Check-in realizado com sucesso!");
+}
 
   async function excluirInscricao(inscricao: Inscricao) {
     const confirmou = window.confirm(
