@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "../../lib/supabase";
+import TermoResponsabilidadeModal from "../../components/TermoResponsabilidadeModal";
 
 
 type FormData = {
@@ -102,6 +103,8 @@ export default function FormularioPage() {
   const [form, setForm] = useState<FormData>(initialData);
   const [erro, setErro] = useState("");
   const [enviando, setEnviando] = useState(false);
+  const [termoAberto, setTermoAberto] = useState(false);
+  const [termoVisualizado, setTermoVisualizado] = useState(false);
 
   const totalEtapas = 8;
   const progresso = Math.round((etapa / totalEtapas) * 100);
@@ -870,37 +873,90 @@ export default function FormularioPage() {
 
             {etapa === 7 && (
               <section>
-                <h2 className="text-2xl font-bold text-amber-300">
+                <p className="text-sm font-semibold uppercase tracking-[0.2em] text-amber-300">
+                  Etapa obrigatória
+                </p>
+
+                <h2 className="mt-2 text-2xl font-bold text-amber-300">
                   Termo de Responsabilidade
                 </h2>
 
-                <div className="mt-6 max-h-80 overflow-y-auto rounded-2xl border border-amber-200/10 bg-white/5 p-6 text-sm leading-7 text-amber-50/80">
-                  <p>
-                    O texto oficial do Termo de
-                    Responsabilidade será colocado
-                    aqui quando você me enviar.
-                  </p>
+                <p className="mt-3 leading-7 text-amber-50/75">
+                  Antes de concluir sua inscrição, leia integralmente o
+                  Termo de Responsabilidade e Compromisso do Congresso 2026.
+                </p>
+
+                <div className="mt-6 rounded-2xl border border-amber-300/20 bg-white/5 p-5">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div>
+                      <p className="font-bold text-white">
+                        Termo de Responsabilidade e Compromisso
+                      </p>
+
+                      <p className="mt-1 text-sm text-amber-100/60">
+                        Congresso 2026 – Igreja Missão Plena em Cristo
+                      </p>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setTermoAberto(true);
+                        setTermoVisualizado(true);
+                      }}
+                      className="rounded-xl bg-amber-400 px-5 py-3 font-black text-[#2b180d] transition hover:bg-amber-300"
+                    >
+                      📖 Ler termo
+                    </button>
+                  </div>
                 </div>
 
-                <label className="mt-6 flex cursor-pointer items-start gap-3 rounded-2xl border border-amber-200/10 bg-white/5 p-5">
+                <label
+                  className={`mt-6 flex items-start gap-3 rounded-2xl border p-5 transition ${
+                    termoVisualizado
+                      ? "cursor-pointer border-amber-300/20 bg-amber-300/10"
+                      : "cursor-not-allowed border-white/10 bg-white/5 opacity-60"
+                  }`}
+                >
                   <input
                     type="checkbox"
                     checked={form.aceitouTermo}
+                    disabled={!termoVisualizado}
                     onChange={(event) =>
                       setForm((anterior) => ({
                         ...anterior,
-                        aceitouTermo:
-                          event.target.checked,
+                        aceitouTermo: event.target.checked,
                       }))
                     }
-                    className="mt-1 h-5 w-5"
+                    className="mt-1 h-5 w-5 shrink-0"
                   />
 
-                  <span>
-                    Declaro que li e aceito o Termo
-                    de Responsabilidade.
+                  <span className="text-sm leading-7">
+                    <strong>
+                      Declaro que li integralmente o Termo de Responsabilidade
+                      e Compromisso do Congresso 2026, compreendi todas as
+                      regras estabelecidas pela organização e concordo com seu
+                      conteúdo.
+                    </strong>
+
+                    <span className="mt-2 block text-amber-50/70">
+                      Estou ciente de que este aceite eletrônico possui validade
+                      equivalente à minha assinatura e assumo a responsabilidade
+                      pela veracidade das informações prestadas.
+                    </span>
+
+                    {!termoVisualizado && (
+                      <span className="mt-2 block font-semibold text-amber-300">
+                        Abra o termo para habilitar esta opção.
+                      </span>
+                    )}
                   </span>
                 </label>
+
+                <TermoResponsabilidadeModal
+                  aberto={termoAberto}
+                  onFechar={() => setTermoAberto(false)}
+                />
               </section>
             )}
 
