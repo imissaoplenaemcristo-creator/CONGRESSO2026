@@ -122,20 +122,25 @@ export default function PagamentosPage() {
       })
       .eq("numero_inscricao", pagamento.numero_inscricao)
       .select(camposPagamento)
-      .single();
+      .maybeSingle();
 
     setSalvandoNumero(null);
 
-    if (error) {
-      console.error(error);
-      alert(
-        `Não foi possível atualizar o pagamento:\n\n${error.message}`
-      );
-      return;
-    }
+   if (error) {
+  console.error(error);
+  alert(
+    `Não foi possível atualizar o pagamento:\n\n${error.message}`
+  );
+  return;
+}
 
-    atualizarPagamentoNaLista(data as Pagamento);
-    alert("Pagamento atualizado com sucesso!");
+if (!data) {
+  alert("Nenhum registro foi atualizado.");
+  return;
+}
+
+atualizarPagamentoNaLista(data as Pagamento);
+alert("Pagamento atualizado com sucesso!");
   }
 
   async function alterarFormaPagamento(
@@ -169,7 +174,7 @@ export default function PagamentosPage() {
       })
       .eq("numero_inscricao", pagamento.numero_inscricao)
       .select(camposPagamento)
-      .single();
+      .maybeSingle();
 
     setSalvandoNumero(null);
 
@@ -178,6 +183,11 @@ export default function PagamentosPage() {
       alert(
         `Não foi possível alterar a forma de pagamento:\n\n${error.message}`
       );
+      return;
+    }
+
+    if (!data) {
+      alert("Nenhum registro foi atualizado.");
       return;
     }
 
