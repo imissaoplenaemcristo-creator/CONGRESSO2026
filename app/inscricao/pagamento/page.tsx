@@ -63,7 +63,7 @@ export default function PagamentoPage() {
       return true;
     }
 
-    return ["pix", "dinheiro", "cartao"].includes(pagamento);
+    return ["pix", "dinheiro", "cartao", "carne"].includes(pagamento);
   }, [inscricaoGratuita, pagamento]);
 
   const formaPagamentoFormatada = useMemo(() => {
@@ -75,6 +75,7 @@ export default function PagamentoPage() {
       pix: "PIX",
       dinheiro: "Dinheiro",
       cartao: "Cartão",
+      carne: "Carnê",
     };
 
     return formas[pagamento] ?? "Não identificada";
@@ -348,6 +349,36 @@ export default function PagamentoPage() {
                     <p className="mt-4 text-sm font-semibold text-[#6e4a32]">
                       Sua inscrição ficará pendente até a confirmação do
                       pagamento.
+                    </p>
+                  </div>
+                )}
+
+                {pagamento === "carne" && !inscricaoGratuita && (
+                  <div className="mt-6 rounded-2xl border-2 border-[#c38a38] bg-white p-6">
+                    <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-full bg-purple-600 text-2xl text-white">
+                      📒
+                    </div>
+
+                    <h2 className="mt-4 text-2xl font-black">
+                      Pagamento por Carnê
+                    </h2>
+
+                    <p className="mt-3 font-semibold text-[#6e4a32]">
+                      Procure o Pastor Alexandre para retirar o carnê e realizar o pagamento.
+                    </p>
+
+                    <div className="mt-5 rounded-xl bg-[#f8f1e6] p-4">
+                      <p className="text-sm font-black text-[#81542e]">
+                        Valor da inscrição
+                      </p>
+
+                      <p className="mt-1 text-3xl font-black">
+                        {formatarMoeda(valor)}
+                      </p>
+                    </div>
+
+                    <p className="mt-4 text-sm font-semibold text-[#6e4a32]">
+                      Sua inscrição ficará pendente até a confirmação do pagamento.
                     </p>
                   </div>
                 )}
