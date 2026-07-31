@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { FormEvent, useState } from "react";
 import QRCode from "qrcode";
+import { jsPDF } from "jspdf";
 import { supabase } from "../lib/supabase";
 
 type Inscricao = {
@@ -110,6 +111,7 @@ export default function MinhaInscricaoPage() {
   const [consultando, setConsultando] = useState(false);
   const [consultou, setConsultou] = useState(false);
   const [qrCode, setQrCode] = useState("");
+  const [compartilhando, setCompartilhando] = useState(false);
 
   async function consultarInscricao(event: FormEvent) {
     event.preventDefault();
@@ -205,6 +207,201 @@ export default function MinhaInscricaoPage() {
     setErro("");
     setConsultou(false);
     setQrCode("");
+  }
+
+  async function baixarComprovante() {
+    if (!inscricao || !qrCode) {
+      alert("O QR Code ainda não está disponível.");
+      return;
+    }
+
+    const pdf = new jsPDF({
+      orientation: "portrait",
+      unit: "mm",
+      format: "a4",
+    });
+
+    const largura = pdf.internal.pageSize.getWidth();
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(20);
+    pdf.text("Congresso 2026", largura / 2, 25, {
+      align: "center",
+    });
+
+    pdf.setFontSize(14);
+    pdf.text("Até Transbordar", largura / 2, 34, {
+      align: "center",
+    });
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(11);
+    pdf.text(
+      "Igreja Missão Plena em Cristo",
+      largura / 2,
+      42,
+      { align: "center" }
+    );
+
+    pdf.setDrawColor(180);
+    pdf.line(20, 50, largura - 20, 50);
+
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(12);
+    pdf.text("Dados da inscrição", 20, 62);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(11);
+
+    const linhas = [
+      `Nome: ${inscricao.nome}`,
+      `Número da inscrição: ${String(
+        inscricao.numero_inscricao
+      ).padStart(5, "0")}`,
+      `Data de nascimento: ${formatarData(
+        inscricao.nascimento
+      )}`,
+      `Igreja: ${inscricao.igreja || "Não informada"}`,
+      `Forma de pagamento: ${formatarPagamento(
+        inscricao.forma_pagamento
+      )}`,
+      `Situação do pagamento: ${formatarStatus(
+        inscricao.status_pagamento
+      )}`,
+    ];
+
+    linhas.forEach((linha, index) => {
+      pdf.text(linha, 20, 72 + index * 8);
+    });
+
+    pdf.setFont("helvetica", "bold");
+    pdf.text("QR Code para check-in", largura / 2, 128, {
+      align: "center",
+    });
+
+    pdf.addImage(qrCode, "PNG", (largura - 70) / 2, 136, 70, 70);
+
+    pdf.setFont("helvetica", "normal");
+    pdf.setFontSize(10);
+    pdf.text(
+      "Apresente este QR Code no check-in juntamente com um documento oficial com foto.",
+      largura / 2,
+      216,
+      {
+        align: "center",
+        maxWidth: 165,
+      }
+    );
+
+    pdf.setFontSize(9);
+    pdf.text(
+      "Este QR Code é individual e intransferível.",
+      largura / 2,
+      226,
+      { align: "center" }
+    );
+
+    pdf.save(
+      `comprovante-inscricao-${String(
+        inscricao.numero_inscricao
+      ).padStart(5, "0")}.pdf`
+    );
+  }
+
+  function baixarQrCode() {
+    if (!inscricao || !qrCode) {
+      alert("O QR Code ainda não está disponível.");
+      return;
+    }
+
+    const link = document.createElement("a");
+    link.href = qrCode;
+    link.download = `qr-code-inscricao-${String(
+      inscricao.numero_inscricao
+    ).padStart(5, "0")}.png`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  }
+
+  function imprimirComprovante() {
+    if (!inscricao || !qrCode) {
+      alert("O QR Code ainda não está disponível.");
+      return;
+    }
+
+    window.print();
+  }
+
+  async function compartilharComprovante() {
+    if (!inscricao || !qrCode) {
+      alert("O QR Code ainda não está disponível.");
+      return;
+    }
+
+    setCompartilhando(true);
+
+    try {
+      const resposta = await fetch(qrCode);
+      const blob = await resposta.blob();
+
+      const arquivo = new File(
+        [blob],
+        `qr-code-inscricao-${String(
+          inscricao.numero_inscricao
+        ).padStart(5, "0")}.png`,
+        { type: "image/png" }
+      );
+
+      const texto = [
+        "Congresso 2026 — Até Transbordar",
+        `Participante: ${inscricao.nome}`,
+        `Inscrição nº ${String(
+          inscricao.numero_inscricao
+        ).padStart(5, "0")}`,
+        `Pagamento: ${formatarStatus(
+          inscricao.status_pagamento
+        )}`,
+        "",
+        "Apresente o QR Code no check-in com um documento oficial com foto.",
+      ].join("\n");
+
+      if (
+        navigator.share &&
+        navigator.canShare?.({ files: [arquivo] })
+      ) {
+        await navigator.share({
+          title: "Congresso 2026",
+          text: texto,
+          files: [arquivo],
+        });
+        return;
+      }
+
+      if (navigator.share) {
+        await navigator.share({
+          title: "Congresso 2026",
+          text: texto,
+          url: window.location.href,
+        });
+        return;
+      }
+
+      await navigator.clipboard.writeText(
+        `${texto}\n${window.location.href}`
+      );
+
+      alert(
+        "As informações da inscrição foram copiadas para a área de transferência."
+      );
+    } catch (erroCompartilhamento) {
+      console.error(
+        "Erro ao compartilhar comprovante:",
+        erroCompartilhamento
+      );
+    } finally {
+      setCompartilhando(false);
+    }
   }
 
   return (
@@ -379,6 +576,43 @@ export default function MinhaInscricaoPage() {
                 <p className="mt-4 text-sm text-amber-50/70">
                   Apresente este QR Code no check-in com um documento oficial com foto.
                 </p>
+
+                <div className="mt-6 grid gap-3 sm:grid-cols-2">
+                  <button
+                    type="button"
+                    onClick={baixarComprovante}
+                    className="rounded-xl bg-amber-400 px-5 py-3 font-black text-[#2b180d] transition hover:brightness-110"
+                  >
+                    📥 Baixar comprovante
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={baixarQrCode}
+                    className="rounded-xl border border-amber-300/30 px-5 py-3 font-bold text-amber-200 transition hover:bg-white/5"
+                  >
+                    📱 Baixar QR Code
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={imprimirComprovante}
+                    className="rounded-xl border border-amber-300/30 px-5 py-3 font-bold text-amber-200 transition hover:bg-white/5"
+                  >
+                    🖨️ Imprimir
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={compartilharComprovante}
+                    disabled={compartilhando}
+                    className="rounded-xl border border-amber-300/30 px-5 py-3 font-bold text-amber-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {compartilhando
+                      ? "Compartilhando..."
+                      : "📤 Compartilhar"}
+                  </button>
+                </div>
               </div>
             ) : (
               <div className="mt-8 rounded-2xl border border-yellow-300/20 bg-yellow-500/10 p-5 text-center text-yellow-100">
