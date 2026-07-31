@@ -114,7 +114,7 @@ export default function PagamentosPage() {
       novoStatus === "pago" ? new Date().toISOString() : null;
 
     const { data, error } = await supabase.rpc(
-      "atualizar_pagamento_admin",
+      "admin_atualizar_pagamento_v2",
       {
         p_numero_inscricao: Number(pagamento.numero_inscricao),
         p_status_pagamento: novoStatus,
@@ -169,7 +169,7 @@ export default function PagamentosPage() {
     setSalvandoNumero(numero);
 
     const { data, error } = await supabase.rpc(
-      "atualizar_pagamento_admin",
+      "admin_atualizar_pagamento_v2",
       {
         p_numero_inscricao: Number(pagamento.numero_inscricao),
         p_status_pagamento: null,
