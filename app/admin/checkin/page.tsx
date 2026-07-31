@@ -10,7 +10,7 @@ type Participante = {
   cpf: string | null;
   telefone: string | null;
   status_pagamento: string | null;
-  checkin_realizado: boolean;
+  checkin_realizado: boolean | string | number | null;
   checkin_em: string | null;
 };
 
@@ -34,6 +34,18 @@ function normalizarStatus(status: string | null) {
     .toLowerCase()
     .trim()
     .replace(/[\s-]+/g, "_");
+}
+
+function checkinJaRealizado(valor: Participante["checkin_realizado"]) {
+  if (valor === true || valor === 1) return true;
+
+  if (typeof valor === "string") {
+    const normalizado = valor.trim().toLowerCase();
+
+    return ["true", "1", "sim", "yes"].includes(normalizado);
+  }
+
+  return false;
 }
 
 function pagamentoLiberado(status: string | null) {
@@ -349,7 +361,7 @@ export default function CheckinPage() {
       return;
     }
 
-    if (data.checkin_realizado) {
+    if (checkinJaRealizado(data.checkin_realizado)) {
       adicionarHistorico(data, "duplicado");
 
       await mostrarRetorno(
@@ -380,7 +392,6 @@ export default function CheckinPage() {
         checkin_em: horarioCheckin,
       })
       .eq("qr_token", data.qr_token)
-      .or("checkin_realizado.eq.false,checkin_realizado.is.null")
       .select(
         `
           qr_token,
@@ -415,7 +426,7 @@ export default function CheckinPage() {
         .eq("qr_token", data.qr_token)
         .maybeSingle();
 
-      if (consultaAtual?.checkin_realizado) {
+      if (consultaAtual && checkinJaRealizado(consultaAtual.checkin_realizado)) {
         adicionarHistorico(consultaAtual, "duplicado");
 
         await mostrarRetorno(
@@ -498,7 +509,7 @@ export default function CheckinPage() {
   }
 
   async function confirmarCheckinManual(participante: Participante) {
-    if (participante.checkin_realizado) {
+    if (checkinJaRealizado(participante.checkin_realizado)) {
       adicionarHistorico(participante, "duplicado");
 
       await mostrarRetorno(
@@ -531,7 +542,6 @@ export default function CheckinPage() {
         checkin_em: horarioCheckin,
       })
       .eq("qr_token", participante.qr_token)
-      .or("checkin_realizado.eq.false,checkin_realizado.is.null")
       .select(
         `
           qr_token,
@@ -974,7 +984,7 @@ export default function CheckinPage() {
                   </div>
 
                   <div className="w-full lg:w-72">
-                    {participante.checkin_realizado ? (
+                    {checkinJaRealizado(participante.checkin_realizado) ? (
                       <div className="rounded-xl border border-orange-400/30 bg-orange-400/10 p-4 text-center">
                         <p className="font-black text-orange-300">
                           Check-in já realizado
