@@ -314,14 +314,14 @@ export default function FormularioPage() {
     if (etapa === 5) {
       if (!form.todosOsDias) {
         setErro(
-          "Informe se você participará de todos os dias do congresso."
+          "Informe se você pretende participar de todos os dias do Congresso."
         );
         return;
       }
 
       if (!form.primeiraVez) {
         setErro(
-          "Informe se é a primeira vez que participa do nosso congresso."
+          "Informe se é sua primeira participação no Congresso."
         );
         return;
       }
@@ -637,7 +637,7 @@ export default function FormularioPage() {
 
                 <div className="mt-6 space-y-6">
                   <PerguntaSimNao
-                    label="Toma medicamento controlado?"
+                    label="Faz uso de medicamento contínuo?"
                     value={
                       form.medicamentoControlado
                     }
@@ -648,6 +648,11 @@ export default function FormularioPage() {
                       )
                     }
                   />
+
+                  <p className="text-sm leading-6 text-amber-200/80">
+                    Essas informações serão utilizadas apenas em caso de
+                    necessidade durante o Congresso.
+                  </p>
 
                   {form.medicamentoControlado ===
                     "sim" && (
@@ -831,7 +836,7 @@ export default function FormularioPage() {
 
                 <div className="mt-6 space-y-6">
                   <PerguntaSimNao
-                    label="Você vai participar de todos os dias do congresso?"
+                    label="Você pretende participar de todos os dias do Congresso?"
                     value={form.todosOsDias}
                     onChange={(valor) =>
                       atualizarCampo(
@@ -842,7 +847,7 @@ export default function FormularioPage() {
                   />
 
                   <PerguntaSimNao
-                    label="É a primeira vez que participa do nosso congresso?"
+                    label="É sua primeira participação no Congresso?"
                     value={form.primeiraVez}
                     onChange={(valor) =>
                       atualizarCampo(
@@ -1117,7 +1122,7 @@ export default function FormularioPage() {
                   )}
 
                   <ItemRevisao
-                    titulo="Participará de todos os dias?"
+                    titulo="Participação em todos os dias"
                     valor={
                       form.todosOsDias === "sim"
                         ? "Sim"
@@ -1126,7 +1131,7 @@ export default function FormularioPage() {
                   />
 
                   <ItemRevisao
-                    titulo="Primeira vez no congresso?"
+                    titulo="Primeira participação no Congresso"
                     valor={
                       form.primeiraVez === "sim"
                         ? "Sim"
