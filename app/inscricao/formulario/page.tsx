@@ -122,6 +122,29 @@ function calcularIdadeNoCongresso(dataNascimento: string): number {
 
   return idade;
 }
+function formatarTelefone(valor: string) {
+  const numeros = valor.replace(/\D/g, "").slice(0, 11);
+
+  if (numeros.length <= 2) {
+    return numeros;
+  }
+
+  if (numeros.length <= 6) {
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(2)}`;
+  }
+
+  if (numeros.length <= 10) {
+    return `(${numeros.slice(0, 2)}) ${numeros.slice(
+      2,
+      6
+    )}-${numeros.slice(6)}`;
+  }
+
+  return `(${numeros.slice(0, 2)}) ${numeros.slice(
+    2,
+    7
+  )}-${numeros.slice(7)}`;
+}
 
 export default function FormularioPage() {
   const router = useRouter();
@@ -574,15 +597,17 @@ export default function FormularioPage() {
 
                 <div className="mt-6 space-y-5">
                   <Campo
-                    label="Telefone"
-                    value={form.telefone}
-                    onChange={(valor) =>
-                      atualizarCampo(
-                        "telefone",
-                        valor
-                      )
-                    }
-                  />
+  label="Telefone"
+  value={form.telefone}
+  placeholder="(31) 99999-9999"
+  inputMode="tel"
+  onChange={(valor) =>
+    atualizarCampo(
+      "telefone",
+      formatarTelefone(valor)
+    )
+  }
+/>
 
                   <Campo
                     label="E-mail"
@@ -747,17 +772,17 @@ export default function FormularioPage() {
                   />
 
                   <Campo
-                    label="Telefone do contato de emergência"
-                    value={
-                      form.contatoEmergenciaTelefone
-                    }
-                    onChange={(valor) =>
-                      atualizarCampo(
-                        "contatoEmergenciaTelefone",
-                        valor
-                      )
-                    }
-                  />
+  label="Telefone do contato de emergência"
+  value={form.contatoEmergenciaTelefone}
+  placeholder="(31) 99999-9999"
+  inputMode="tel"
+  onChange={(valor) =>
+    atualizarCampo(
+      "contatoEmergenciaTelefone",
+      formatarTelefone(valor)
+    )
+  }
+/>
 
                   {menorDeIdade && (
                     <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 p-5">
@@ -780,12 +805,17 @@ export default function FormularioPage() {
                         />
 
                         <Campo
-                          label="Telefone do responsável legal"
-                          value={form.responsavelTelefone}
-                          onChange={(valor) =>
-                            atualizarCampo("responsavelTelefone", valor)
-                          }
-                        />
+  label="Telefone do responsável legal"
+  value={form.responsavelTelefone}
+  placeholder="(31) 99999-9999"
+  inputMode="tel"
+  onChange={(valor) =>
+    atualizarCampo(
+      "responsavelTelefone",
+      formatarTelefone(valor)
+    )
+  }
+/>
                       </div>
                     </div>
                   )}
@@ -1162,6 +1192,8 @@ type CampoProps = {
   label: string;
   value: string;
   type?: string;
+  placeholder?: string;
+  inputMode?: React.HTMLAttributes<HTMLInputElement>["inputMode"];
   onChange: (valor: string) => void;
 };
 
@@ -1169,6 +1201,8 @@ function Campo({
   label,
   value,
   type = "text",
+  placeholder,
+  inputMode,
   onChange,
 }: CampoProps) {
   return (
@@ -1180,6 +1214,8 @@ function Campo({
       <input
         type={type}
         value={value}
+        placeholder={placeholder}
+inputMode={inputMode}
         onChange={(event) =>
           onChange(event.target.value)
         }
