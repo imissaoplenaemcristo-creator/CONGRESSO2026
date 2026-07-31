@@ -388,6 +388,9 @@ export default function CheckinPage() {
         token_informado: data.qr_token,
       });
 
+      console.log("RETORNO RPC:", retornoRpc);
+console.log("ERRO RPC:", erroAtualizacao);
+
     if (erroAtualizacao || !retornoRpc) {
       console.error("Erro ao confirmar check-in:", erroAtualizacao);
 
