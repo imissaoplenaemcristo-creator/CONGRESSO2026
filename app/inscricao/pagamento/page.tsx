@@ -39,6 +39,9 @@ export default function PagamentoPage() {
     useState(false);
   const [mensagemComprovante, setMensagemComprovante] =
     useState("");
+  const [statusComprovante, setStatusComprovante] =
+    useState("");
+  const [motivoRecusa, setMotivoRecusa] = useState("");
 
   useEffect(() => {
     const parametros = new URLSearchParams(window.location.search);
@@ -75,11 +78,39 @@ export default function PagamentoPage() {
         }
       );
 
-      if (!error && data?.comprovante_path) {
-        setComprovanteEnviado(true);
-        setMensagemComprovante(
-          "Comprovante já enviado. O pagamento está aguardando análise."
+      if (!error && data) {
+        const statusAtual = String(
+          data.comprovante_status ?? ""
+        ).toLowerCase();
+
+        const pagamentoAtual = String(
+          data.status_pagamento ?? ""
+        ).toLowerCase();
+
+        setStatusComprovante(statusAtual);
+        setMotivoRecusa(
+          String(data.comprovante_recusado_motivo ?? "")
         );
+
+        if (pagamentoAtual === "pago") {
+          setComprovanteEnviado(true);
+          setMensagemComprovante(
+            "Pagamento confirmado. Seu QR Code está liberado para o check-in."
+          );
+        } else if (statusAtual === "recusado") {
+          setComprovanteEnviado(false);
+          setMensagemComprovante(
+            "O comprovante foi recusado. Envie um novo arquivo."
+          );
+        } else if (
+          statusAtual === "em_analise" ||
+          data.comprovante_path
+        ) {
+          setComprovanteEnviado(true);
+          setMensagemComprovante(
+            "Recebemos seu comprovante. O pagamento está em análise."
+          );
+        }
       }
 
       setCarregando(false);
@@ -234,6 +265,8 @@ export default function PagamentoPage() {
       }
 
       setComprovanteEnviado(true);
+      setStatusComprovante("em_analise");
+      setMotivoRecusa("");
       setArquivoComprovante(null);
       setMensagemComprovante(
         "Comprovante enviado com sucesso! O pagamento está em análise."
@@ -463,15 +496,92 @@ export default function PagamentoPage() {
                         WEBP e PDF, com até 10 MB.
                       </p>
 
-                      {comprovanteEnviado ? (
+                      {statusComprovante === "em_analise" &&
+                      comprovanteEnviado ? (
+                        <div className="mt-5 rounded-xl border-2 border-amber-500 bg-amber-50 p-5 text-center">
+                          <p className="text-xl font-black text-amber-800">
+                            🟡 Pagamento em análise
+                          </p>
+
+                          <p className="mt-3 text-sm font-semibold leading-6 text-amber-900">
+                            Recebemos seu comprovante de pagamento.
+                            Nossa equipe fará a conferência em breve.
+                          </p>
+
+                          <p className="mt-2 text-sm font-semibold text-amber-800">
+                            Aguarde a aprovação para liberação do QR Code.
+                          </p>
+                        </div>
+                      ) : statusComprovante === "recusado" ? (
+                        <>
+                          <div className="mt-5 rounded-xl border-2 border-red-500 bg-red-50 p-5 text-center">
+                            <p className="text-xl font-black text-red-700">
+                              🔴 Comprovante recusado
+                            </p>
+
+                            <p className="mt-3 text-sm font-bold text-red-800">
+                              Motivo:
+                            </p>
+
+                            <p className="mt-1 text-sm font-semibold leading-6 text-red-800">
+                              {motivoRecusa ||
+                                "O comprovante não pôde ser aprovado."}
+                            </p>
+
+                            <p className="mt-3 text-sm font-semibold text-red-700">
+                              Envie um novo comprovante para uma nova análise.
+                            </p>
+                          </div>
+
+                          <label className="mt-5 block cursor-pointer rounded-xl border-2 border-[#c38a38] bg-white p-4 text-center font-black transition hover:bg-amber-50">
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,application/pdf"
+                              onChange={selecionarComprovante}
+                              className="hidden"
+                            />
+
+                            📎 Escolher novo comprovante
+                          </label>
+
+                          {arquivoComprovante && (
+                            <div className="mt-4 rounded-xl bg-[#f8f1e6] p-4">
+                              <p className="text-sm font-black text-[#81542e]">
+                                Arquivo selecionado
+                              </p>
+
+                              <p className="mt-1 break-all font-semibold">
+                                {arquivoComprovante.name}
+                              </p>
+
+                              <p className="mt-1 text-sm text-[#6e4a32]">
+                                {(arquivoComprovante.size / 1024 / 1024).toFixed(2)} MB
+                              </p>
+                            </div>
+                          )}
+
+                          <button
+                            type="button"
+                            onClick={enviarComprovantePix}
+                            disabled={
+                              !arquivoComprovante ||
+                              enviandoComprovante
+                            }
+                            className="mt-4 w-full rounded-xl bg-emerald-600 px-5 py-4 font-black text-white transition hover:bg-emerald-500 disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {enviandoComprovante
+                              ? "Enviando novo comprovante..."
+                              : "Enviar novo comprovante"}
+                          </button>
+                        </>
+                      ) : comprovanteEnviado ? (
                         <div className="mt-5 rounded-xl border-2 border-emerald-600 bg-emerald-50 p-5 text-center">
                           <p className="text-xl font-black text-emerald-700">
-                            ✅ Comprovante enviado
+                            ✅ Pagamento confirmado
                           </p>
 
                           <p className="mt-2 text-sm font-semibold text-emerald-800">
-                            Seu pagamento está em análise. Após a aprovação,
-                            o QR Code será liberado para o check-in.
+                            Seu QR Code está liberado para o check-in.
                           </p>
                         </div>
                       ) : (
@@ -669,7 +779,9 @@ export default function PagamentoPage() {
               {pagamento === "pix" &&
               !inscricaoGratuita &&
               !comprovanteEnviado
-                ? "Envie o comprovante para continuar"
+                ? statusComprovante === "recusado"
+                  ? "Envie um novo comprovante para continuar"
+                  : "Envie o comprovante para continuar"
                 : "Continuar para o comprovante →"}
             </button>
 
