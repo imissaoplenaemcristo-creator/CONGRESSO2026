@@ -10,6 +10,7 @@ type Participante = {
   cpf: string | null;
   telefone: string | null;
   status_pagamento: string | null;
+  valor_inscricao: number | null;
   checkin_realizado: boolean | string | number | null;
   checkin_em: string | null;
 };
@@ -48,7 +49,14 @@ function checkinJaRealizado(valor: Participante["checkin_realizado"]) {
   return false;
 }
 
-function pagamentoLiberado(status: string | null) {
+function pagamentoLiberado(
+  status: string | null,
+  valorInscricao: number | null
+) {
+  if (Number(valorInscricao ?? 0) === 0) {
+    return true;
+  }
+
   const normalizado = normalizarStatus(status);
 
   return [
@@ -57,6 +65,7 @@ function pagamentoLiberado(status: string | null) {
     "pagamento_confirmado",
     "gratuito",
     "isento",
+    "cortesia",
   ].includes(normalizado);
 }
 
@@ -341,6 +350,7 @@ export default function CheckinPage() {
           cpf,
           telefone,
           status_pagamento,
+          valor_inscricao,
           checkin_realizado,
           checkin_em
         `
@@ -372,7 +382,12 @@ export default function CheckinPage() {
       return;
     }
 
-    if (!pagamentoLiberado(data.status_pagamento)) {
+    if (
+      !pagamentoLiberado(
+        data.status_pagamento,
+        data.valor_inscricao
+      )
+    ) {
       adicionarHistorico(data, "bloqueado");
 
       await mostrarRetorno(
@@ -387,9 +402,6 @@ export default function CheckinPage() {
       .rpc("confirmar_checkin", {
         token_informado: data.qr_token,
       });
-
-      console.log("RETORNO RPC:", retornoRpc);
-console.log("ERRO RPC:", erroAtualizacao);
 
     if (erroAtualizacao || !retornoRpc) {
       console.error("Erro ao confirmar check-in:", erroAtualizacao);
@@ -450,6 +462,7 @@ console.log("ERRO RPC:", erroAtualizacao);
           cpf,
           telefone,
           status_pagamento,
+          valor_inscricao,
           checkin_realizado,
           checkin_em
         `
@@ -489,7 +502,12 @@ console.log("ERRO RPC:", erroAtualizacao);
       return;
     }
 
-    if (!pagamentoLiberado(participante.status_pagamento)) {
+    if (
+      !pagamentoLiberado(
+        participante.status_pagamento,
+        participante.valor_inscricao
+      )
+    ) {
       adicionarHistorico(participante, "bloqueado");
 
       await mostrarRetorno(
@@ -891,7 +909,8 @@ console.log("ERRO RPC:", erroAtualizacao);
 
           {participantes.map((participante) => {
             const liberado = pagamentoLiberado(
-              participante.status_pagamento
+              participante.status_pagamento,
+              participante.valor_inscricao
             );
 
             return (
