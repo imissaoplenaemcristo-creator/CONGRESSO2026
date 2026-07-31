@@ -55,17 +55,19 @@ export default function CheckinPage() {
       .single();
 
     if (error || !data) {
-      console.error(error);
-      setMensagem("QR Code inválido ou participante não encontrado.");
-      setParticipantes([]);
-      setCarregando(false);
+  console.error("ERRO SUPABASE:", error);
+  alert(JSON.stringify(error));
 
-      setTimeout(() => {
-        leituraEmAndamento.current = false;
-      }, 2000);
+  setMensagem("QR Code inválido ou participante não encontrado.");
+  setParticipantes([]);
+  setCarregando(false);
 
-      return;
-    }
+  setTimeout(() => {
+    leituraEmAndamento.current = false;
+  }, 2000);
+
+  return;
+}
 
     if ("vibrate" in navigator) {
       navigator.vibrate(150);
