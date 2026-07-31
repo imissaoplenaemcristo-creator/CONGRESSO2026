@@ -5,6 +5,7 @@ import { supabase } from "@/app/lib/supabase";
 
 type Participante = {
   id: string;
+  qr_token: string | null;
   numero_inscricao: string | null;
   nome: string;
   cpf: string | null;
@@ -24,8 +25,8 @@ export default function CheckinPage() {
   const scannerRef = useRef<any>(null);
   const leituraEmAndamento = useRef(false);
 
-  async function buscarParticipantePorId(id: string) {
-    const codigo = id.trim();
+  async function buscarParticipantePorQrToken(token: string) {
+    const codigo = token.trim();
 
     if (!codigo || leituraEmAndamento.current) {
       return;
@@ -40,6 +41,7 @@ export default function CheckinPage() {
       .select(
         `
           id,
+          qr_token,
           numero_inscricao,
           nome,
           cpf,
@@ -49,7 +51,7 @@ export default function CheckinPage() {
           checkin_em
         `
       )
-      .eq("id", codigo)
+      .eq("qr_token", codigo)
       .single();
 
     if (error || !data) {
@@ -63,6 +65,10 @@ export default function CheckinPage() {
       }, 2000);
 
       return;
+    }
+
+    if ("vibrate" in navigator) {
+      navigator.vibrate(150);
     }
 
     setParticipantes([data]);
@@ -93,6 +99,7 @@ export default function CheckinPage() {
       .select(
         `
           id,
+          qr_token,
           numero_inscricao,
           nome,
           cpf,
@@ -157,7 +164,7 @@ export default function CheckinPage() {
           aspectRatio: 1,
         },
         async (codigoLido) => {
-          await buscarParticipantePorId(codigoLido);
+          await buscarParticipantePorQrToken(codigoLido);
         },
         () => {
           // Ignora tentativas sem leitura válida.
@@ -236,6 +243,7 @@ export default function CheckinPage() {
       .select(
         `
           id,
+          qr_token,
           numero_inscricao,
           nome,
           cpf,
