@@ -596,7 +596,7 @@ export default function FormularioPage() {
                 </h2>
 
                 <div className="mt-6 space-y-5">
-                  <Campo
+<Campo
   label="Telefone"
   value={form.telefone}
   placeholder="(31) 99999-9999"
