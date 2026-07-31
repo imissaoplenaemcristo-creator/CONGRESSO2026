@@ -126,63 +126,7 @@ export default function Home() {
         </div>
       </header>
 
-      <section className="mx-auto grid max-w-7xl items-center gap-10 px-6 py-12 lg:grid-cols-2 lg:py-20">
-        <div>
-          <p className="mb-3 text-sm font-semibold uppercase tracking-[0.35em] text-amber-300">
-            Congresso 2026
-          </p>
-
-          <h2 className="text-5xl font-black leading-tight md:text-7xl">
-            Até Transbordar
-          </h2>
-
-          <p className="mt-5 max-w-xl text-lg leading-8 text-amber-50/80">
-            Quatro dias de comunhão, adoração,
-            palavra e experiências inesquecíveis na
-            presença de Deus.
-          </p>
-
-          <div className="mt-8 space-y-3 text-lg">
-            <p>
-              📅{" "}
-              <strong>
-                19 a 22 de novembro de 2026
-              </strong>
-            </p>
-
-            <p>
-              📍{" "}
-              <strong>
-                Arca Centro de Convenções — BR-262,
-                km 388
-              </strong>
-            </p>
-          </div>
-
-          <div className="mt-8 flex flex-wrap gap-4">
-            <Link
-              href="/inscricao/formulario"
-              className="rounded-xl bg-gradient-to-r from-amber-400 to-yellow-600 px-7 py-4 font-bold text-[#2b180d] shadow-lg shadow-amber-900/30 transition hover:scale-[1.02]"
-            >
-              Fazer minha inscrição
-            </Link>
-
-            <Link
-              href="/minha-inscricao"
-              className="rounded-xl border border-amber-300 bg-black/20 px-7 py-4 font-bold text-white transition hover:bg-amber-500 hover:text-[#2b180d]"
-            >
-              Minha inscrição
-            </Link>
-
-            <Link
-              href="/programacao"
-              className="rounded-xl border border-amber-200/30 px-7 py-4 font-semibold transition hover:bg-white/10"
-            >
-              Ver programação
-            </Link>
-          </div>
-        </div>
-
+      <section className="mx-auto max-w-7xl px-4 py-8 sm:px-6 sm:py-12 lg:py-16">
         <div className="overflow-hidden rounded-3xl border border-amber-200/20 bg-black/30 p-2 shadow-2xl">
           <Image
             src="/flyer-congresso-2026.jpg"
@@ -190,8 +134,55 @@ export default function Home() {
             width={1920}
             height={1080}
             priority
-            className="h-auto w-full rounded-2xl"
+            className="h-auto w-full rounded-2xl object-cover"
           />
+        </div>
+
+        <div className="mx-auto mt-10 max-w-4xl text-center sm:mt-12">
+          <p className="text-sm font-semibold uppercase tracking-[0.32em] text-amber-300">
+            Congresso 2026
+          </p>
+
+          <h2 className="mt-3 text-4xl font-black leading-tight sm:text-5xl md:text-6xl lg:text-7xl">
+            Até Transbordar
+          </h2>
+
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-7 text-amber-50/80 sm:text-lg sm:leading-8">
+            Quatro dias de comunhão, adoração, palavra e experiências
+            inesquecíveis na presença de Deus.
+          </p>
+
+          <div className="mx-auto mt-7 grid max-w-2xl gap-3 text-left text-base sm:grid-cols-2 sm:text-lg">
+            <div className="rounded-2xl border border-amber-200/10 bg-white/5 p-4">
+              <p className="text-sm text-amber-100/60">Data</p>
+              <p className="mt-1 font-black text-white">
+                📅 19 a 22 de novembro de 2026
+              </p>
+            </div>
+
+            <div className="rounded-2xl border border-amber-200/10 bg-white/5 p-4">
+              <p className="text-sm text-amber-100/60">Local</p>
+              <p className="mt-1 font-black text-white">
+                📍 Arca Centro de Convenções
+              </p>
+            </div>
+          </div>
+
+          <div className="mx-auto mt-8 grid max-w-2xl gap-3 sm:grid-cols-2">
+            <Link
+              href="/inscricao/formulario"
+              className="flex min-h-14 items-center justify-center rounded-xl bg-gradient-to-r from-amber-400 to-yellow-600 px-6 py-4 text-center font-black text-[#2b180d] shadow-lg shadow-amber-900/30 transition hover:scale-[1.02]"
+            >
+              Fazer minha inscrição
+            </Link>
+
+            <Link
+              href="/minha-inscricao"
+              className="flex min-h-14 items-center justify-center rounded-xl border border-amber-300 bg-black/20 px-6 py-4 text-center font-black text-white transition hover:bg-amber-500 hover:text-[#2b180d]"
+            >
+              Minha inscrição
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -244,7 +235,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 py-20">
+      <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6 sm:py-20">
         <div className="grid gap-6 md:grid-cols-2">
           <Link
             href="/sobre"
@@ -329,7 +320,7 @@ export default function Home() {
         </div>
       </section>
 
-      <section className="mx-auto max-w-7xl px-6 pb-20">
+      <section className="mx-auto max-w-7xl px-4 pb-16 sm:px-6 sm:pb-20">
         <div className="rounded-3xl bg-gradient-to-r from-amber-400 to-yellow-600 p-8 text-center text-[#2b180d] md:p-12">
           <p className="text-sm font-bold uppercase tracking-[0.3em]">
             Inscrição
