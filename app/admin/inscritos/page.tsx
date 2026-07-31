@@ -42,7 +42,7 @@ type Inscricao = {
   primeira_vez: string | null;
   forma_pagamento: string | null;
   valor_inscricao: number | null;
-status_pagamento: string | null;
+  status_pagamento: string | null;
 
   checkin_realizado: boolean;
   checkin_em: string | null;
@@ -73,7 +73,7 @@ const camposInscricao = `
   primeira_vez,
   forma_pagamento,
   valor_inscricao,
-status_pagamento,
+  status_pagamento,
   checkin_realizado,
   checkin_em
 `;
@@ -233,7 +233,7 @@ export default function InscritosPage() {
     alert("Inscrição atualizada com sucesso!");
   }
 
-async function realizarCheckin(inscricao: Inscricao) {
+  async function realizarCheckin(inscricao: Inscricao) {
   if (inscricao.checkin_realizado) {
     alert("Este participante já realizou o check-in.");
     return;
@@ -278,7 +278,7 @@ async function realizarCheckin(inscricao: Inscricao) {
   atualizarInscricaoNaLista(inscricaoAtualizada);
 
   alert("Check-in realizado com sucesso!");
-}
+  }
 
   async function excluirInscricao(inscricao: Inscricao) {
     const confirmou = window.confirm(
@@ -341,7 +341,7 @@ async function realizarCheckin(inscricao: Inscricao) {
     <div>
       <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
         <div>
-          <h1 className="text-4xl font-black text-amber-400">
+<h1 className="text-3xl font-black text-amber-400 sm:text-4xl">
             Inscritos
           </h1>
 
@@ -354,11 +354,13 @@ async function realizarCheckin(inscricao: Inscricao) {
           </p>
         </div>
 
-        <SearchBar
-          value={pesquisa}
-          onChange={setPesquisa}
-          placeholder="Pesquisar por nome, CPF, número ou igreja..."
-        />
+        <div className="w-full lg:w-auto">
+          <SearchBar
+            value={pesquisa}
+            onChange={setPesquisa}
+            placeholder="Pesquisar por nome, CPF, número ou igreja..."
+          />
+        </div>
       </div>
 
       {carregando && (
@@ -402,21 +404,10 @@ async function realizarCheckin(inscricao: Inscricao) {
                   <th className="px-4 py-4">E-mail</th>
                   <th className="px-4 py-4">Igreja</th>
 
-<th className="px-4 py-4">
-  Forma
-</th>
-
-<th className="px-4 py-4">
-  Valor
-</th>
-
-<th className="px-4 py-4">
-  Status do pagamento
-</th>
-
-<th className="px-4 py-4">
-  Check-in
-</th>
+                  <th className="px-4 py-4">Forma</th>
+                  <th className="px-4 py-4">Valor</th>
+                  <th className="px-4 py-4">Status do pagamento</th>
+                  <th className="px-4 py-4">Check-in</th>
                   <th className="px-4 py-4 text-center">
                     Ações
                   </th>
@@ -456,8 +447,8 @@ async function realizarCheckin(inscricao: Inscricao) {
                     </td>
 
                     <td className="px-4 py-4">
-  {inscricao.forma_pagamento || "Não informado"}
-</td>
+                      {inscricao.forma_pagamento || "Não informado"}
+                    </td>
 
 <td className="px-4 py-4 font-semibold">
   {Number(inscricao.valor_inscricao ?? 0) === 0
@@ -517,7 +508,7 @@ async function realizarCheckin(inscricao: Inscricao) {
             className="fixed inset-0 z-40 bg-black/60"
           />
 
-          <aside className="fixed right-0 top-0 z-50 h-screen w-full max-w-xl overflow-y-auto border-l border-amber-400/20 bg-[#21150f] p-6 shadow-2xl">
+          <aside className="fixed right-0 top-0 z-50 h-screen w-full max-w-full overflow-y-auto border-l border-amber-400/20 bg-[#21150f] p-4 shadow-2xl sm:max-w-xl sm:p-6">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-300">
@@ -550,7 +541,7 @@ async function realizarCheckin(inscricao: Inscricao) {
                 Número da inscrição
               </p>
 
-              <p className="mt-2 text-4xl font-black text-amber-300">
+              <p className="mt-2 text-3xl font-black text-amber-300 sm:text-4xl">
                 {String(
                   inscricaoSelecionada.numero_inscricao
                 ).padStart(5, "0")}
@@ -788,7 +779,7 @@ async function realizarCheckin(inscricao: Inscricao) {
                     <img
                       src={imagemQrCode}
                       alt="QR Code do participante"
-                      className="mx-auto mt-4 h-56 w-56 rounded-2xl bg-white p-3"
+                      className="mx-auto mt-4 h-44 w-44 rounded-2xl bg-white p-3 sm:h-56 sm:w-56"
                     />
                   ) : (
                     <p className="mt-4 text-amber-100/70">
