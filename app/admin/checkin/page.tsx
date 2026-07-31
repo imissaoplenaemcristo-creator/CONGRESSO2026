@@ -383,64 +383,31 @@ export default function CheckinPage() {
       return;
     }
 
-    const horarioCheckin = new Date().toISOString();
-
-    const { data: atualizado, error: erroAtualizacao } = await supabase
-      .from("inscricoes")
-      .update({
-        checkin_realizado: true,
-        checkin_em: horarioCheckin,
+    const { data: retornoRpc, error: erroAtualizacao } = await supabase
+      .rpc("confirmar_checkin", {
+        token_informado: data.qr_token,
       })
-      .eq("qr_token", data.qr_token)
-      .select(
-        `
-          qr_token,
-          numero_inscricao,
-          nome,
-          cpf,
-          telefone,
-          status_pagamento,
-          checkin_realizado,
-          checkin_em
-        `
-      )
       .maybeSingle();
 
-    if (erroAtualizacao || !atualizado) {
+    if (erroAtualizacao || !retornoRpc) {
       console.error("Erro ao confirmar check-in:", erroAtualizacao);
-
-      const { data: consultaAtual } = await supabase
-        .from("inscricoes")
-        .select(
-          `
-            qr_token,
-            numero_inscricao,
-            nome,
-            cpf,
-            telefone,
-            status_pagamento,
-            checkin_realizado,
-            checkin_em
-          `
-        )
-        .eq("qr_token", data.qr_token)
-        .maybeSingle();
-
-      if (consultaAtual && checkinJaRealizado(consultaAtual.checkin_realizado)) {
-        adicionarHistorico(consultaAtual, "duplicado");
-
-        await mostrarRetorno(
-          "duplicado",
-          consultaAtual,
-          "Check-in já realizado anteriormente."
-        );
-        return;
-      }
 
       await mostrarRetorno(
         "erro",
         data,
-        "Não foi possível confirmar o check-in. Tente novamente."
+        erroAtualizacao?.message ||
+          "Não foi possível confirmar o check-in. Tente novamente."
+      );
+      return;
+    }
+
+    const atualizado = retornoRpc as Participante;
+
+    if (!checkinJaRealizado(atualizado.checkin_realizado)) {
+      await mostrarRetorno(
+        "erro",
+        atualizado,
+        "O check-in não foi confirmado pelo banco de dados."
       );
       return;
     }
@@ -533,41 +500,27 @@ export default function CheckinPage() {
 
     setCarregando(true);
 
-    const horarioCheckin = new Date().toISOString();
-
-    const { data, error } = await supabase
-      .from("inscricoes")
-      .update({
-        checkin_realizado: true,
-        checkin_em: horarioCheckin,
+    const { data: retornoRpc, error } = await supabase
+      .rpc("confirmar_checkin", {
+        token_informado: participante.qr_token,
       })
-      .eq("qr_token", participante.qr_token)
-      .select(
-        `
-          qr_token,
-          numero_inscricao,
-          nome,
-          cpf,
-          telefone,
-          status_pagamento,
-          checkin_realizado,
-          checkin_em
-        `
-      )
       .maybeSingle();
 
     setCarregando(false);
 
-    if (error || !data) {
+    if (error || !retornoRpc) {
       console.error(error);
 
       await mostrarRetorno(
         "erro",
         participante,
-        "Não foi possível confirmar o check-in. Ele pode já ter sido realizado."
+        error?.message ||
+          "Não foi possível confirmar o check-in. Tente novamente."
       );
       return;
     }
+
+    const data = retornoRpc as Participante;
 
     setParticipantes((listaAtual) =>
       listaAtual.map((item) =>
