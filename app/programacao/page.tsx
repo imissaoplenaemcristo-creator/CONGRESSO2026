@@ -7,10 +7,28 @@ const dias = [
     destaque: "Abertura do congresso",
     itens: [
       {
-        horario: "19h30",
-        titulo: "Abertura oficial",
+        horario: "19h45",
+        titulo: "Saída da Igreja Missão Plena em Cristo",
         descricao:
-          "Início do Congresso 2026 — Até Transbordar, com momento de louvor, apresentação e palavra.",
+          "Saída oficial para o local do Congresso 2026.",
+      },
+      {
+        horario: "Após a chegada",
+        titulo: "Direcionamento para o auditório",
+        descricao:
+          "Recepção dos participantes e organização para o início das atividades.",
+      },
+      {
+        horario: "Em seguida",
+        titulo: "Informações gerais",
+        descricao:
+          "Orientações importantes para os dias do Congresso.",
+      },
+      {
+        horario: "Após as informações",
+        titulo: "Jantar",
+        descricao:
+          "Momento de alimentação e comunhão entre os participantes.",
       },
     ],
   },
@@ -20,22 +38,52 @@ const dias = [
     destaque: "Primeiro dia completo",
     itens: [
       {
-        horario: "08h00",
+        horario: "07h30 às 08h30",
         titulo: "Café da manhã",
         descricao:
           "Momento de alimentação e comunhão entre os participantes.",
       },
       {
-        horario: "09h30",
-        titulo: "Palavra",
+        horario: "08h45 às 11h50",
+        titulo: "Culto",
         descricao:
-          "Ministração e momento de crescimento espiritual.",
+          "Momento de louvor, palavra e crescimento espiritual.",
       },
       {
-        horario: "Em breve",
-        titulo: "Demais atividades",
+        horario: "Após o culto",
+        titulo: "Batismo nas águas",
         descricao:
-          "Os outros horários e atividades serão divulgados pela organização.",
+          "Celebração do batismo nas águas.",
+      },
+      {
+        horario: "11h50",
+        titulo: "Almoço",
+        descricao:
+          "Refeição e momento de comunhão.",
+      },
+      {
+        horario: "Tarde",
+        titulo: "Tarde livre",
+        descricao:
+          "Tempo livre para descanso, lazer e convivência.",
+      },
+      {
+        horario: "16h30",
+        titulo: "Café da tarde",
+        descricao:
+          "Momento de alimentação antes da programação da noite.",
+      },
+      {
+        horario: "18h00",
+        titulo: "Culto",
+        descricao:
+          "Culto da noite com louvor e ministração da Palavra.",
+      },
+      {
+        horario: "21h00",
+        titulo: "Jantar",
+        descricao:
+          "Encerramento das atividades do dia com jantar.",
       },
     ],
   },
@@ -45,10 +93,46 @@ const dias = [
     destaque: "Programação especial",
     itens: [
       {
-        horario: "Em breve",
-        titulo: "Programação em definição",
+        horario: "07h30 às 08h30",
+        titulo: "Café da manhã",
         descricao:
-          "Os horários, ministrações e atividades de sábado serão divulgados em breve.",
+          "Momento de alimentação e comunhão entre os participantes.",
+      },
+      {
+        horario: "08h45 às 11h50",
+        titulo: "Culto",
+        descricao:
+          "Momento de louvor, palavra e crescimento espiritual.",
+      },
+      {
+        horario: "11h50",
+        titulo: "Almoço",
+        descricao:
+          "Refeição e momento de comunhão.",
+      },
+      {
+        horario: "Tarde",
+        titulo: "Tarde livre",
+        descricao:
+          "Tempo livre para descanso, lazer e convivência.",
+      },
+      {
+        horario: "16h30",
+        titulo: "Café da tarde",
+        descricao:
+          "Momento de alimentação antes da programação da noite.",
+      },
+      {
+        horario: "18h00",
+        titulo: "Culto",
+        descricao:
+          "Culto da noite com louvor e ministração da Palavra.",
+      },
+      {
+        horario: "21h00",
+        titulo: "Jantar",
+        descricao:
+          "Encerramento das atividades do dia com jantar.",
       },
     ],
   },
@@ -58,10 +142,34 @@ const dias = [
     destaque: "Encerramento",
     itens: [
       {
-        horario: "Em breve",
-        titulo: "Programação de encerramento",
+        horario: "07h30 às 08h30",
+        titulo: "Café da manhã",
         descricao:
-          "Os detalhes do último dia e do encerramento serão divulgados pela organização.",
+          "Momento de alimentação e comunhão entre os participantes.",
+      },
+      {
+        horario: "08h45 às 11h40",
+        titulo: "Culto",
+        descricao:
+          "Culto de encerramento com louvor e ministração da Palavra.",
+      },
+      {
+        horario: "11h50",
+        titulo: "Almoço",
+        descricao:
+          "Refeição e momento de comunhão.",
+      },
+      {
+        horario: "Tarde",
+        titulo: "Tarde livre",
+        descricao:
+          "Tempo livre antes da organização para o retorno.",
+      },
+      {
+        horario: "17h00",
+        titulo: "Retorno",
+        descricao:
+          "Saída do local do Congresso e retorno para a Igreja Missão Plena em Cristo.",
       },
     ],
   },
@@ -72,7 +180,7 @@ export default function ProgramacaoPage() {
     <main className="min-h-screen bg-gradient-to-b from-[#21150f] via-[#4a2d18] to-[#160e0a] text-white">
       <Header />
 
-      <section className="mx-auto max-w-7xl px-6 py-16 md:py-20">
+      <section className="mx-auto max-w-7xl px-4 py-12 sm:px-6 md:py-20">
         <div className="max-w-3xl">
           <p className="text-sm font-bold uppercase tracking-[0.35em] text-amber-300">
             Congresso 2026
@@ -83,39 +191,22 @@ export default function ProgramacaoPage() {
           </h1>
 
           <p className="mt-6 text-lg leading-8 text-amber-50/75">
-            Confira os horários já definidos para os quatro dias do
-            Congresso 2026. A programação poderá receber atualizações
-            conforme novas informações forem confirmadas pela organização.
+            Confira a programação oficial dos quatro dias do Congresso
+            2026.
+          </p>
+
+          <p className="mt-3 text-sm italic leading-6 text-amber-200/80">
+            A programação poderá sofrer alterações, se necessário, pela
+            organização do Congresso.
           </p>
         </div>
 
-        <div className="mt-12 rounded-3xl border border-amber-200/15 bg-black/25 p-6 shadow-2xl md:p-8">
+        <div className="mt-10 rounded-3xl border border-amber-200/15 bg-black/25 p-5 shadow-2xl md:p-8">
           <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl border border-amber-200/10 bg-white/5 p-5">
-              <p className="text-sm text-amber-200/70">Período</p>
-              <p className="mt-2 text-lg font-bold">
-                19 a 22 de novembro
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-amber-200/10 bg-white/5 p-5">
-              <p className="text-sm text-amber-200/70">Duração</p>
-              <p className="mt-2 text-lg font-bold">Quatro dias</p>
-            </div>
-
-            <div className="rounded-2xl border border-amber-200/10 bg-white/5 p-5">
-              <p className="text-sm text-amber-200/70">Local</p>
-              <p className="mt-2 text-lg font-bold">
-                Sítio Arca Centro
-              </p>
-            </div>
-
-            <div className="rounded-2xl border border-amber-200/10 bg-white/5 p-5">
-              <p className="text-sm text-amber-200/70">Cidade</p>
-              <p className="mt-2 text-lg font-bold">
-                Mateus Leme/MG
-              </p>
-            </div>
+            <Resumo label="Período" valor="19 a 22 de novembro" />
+            <Resumo label="Duração" valor="Quatro dias" />
+            <Resumo label="Local" valor="Sítio Arca Centro" />
+            <Resumo label="Cidade" valor="Mateus Leme/MG" />
           </div>
         </div>
 
@@ -125,7 +216,7 @@ export default function ProgramacaoPage() {
               key={programacao.dia}
               className="overflow-hidden rounded-3xl border border-amber-200/10 bg-white/5 shadow-xl"
             >
-              <div className="border-b border-amber-200/10 bg-black/20 px-6 py-6 md:px-8">
+              <div className="border-b border-amber-200/10 bg-black/20 px-5 py-6 md:px-8">
                 <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
                   <div>
                     <p className="text-sm font-bold uppercase tracking-[0.25em] text-amber-300">
@@ -147,13 +238,13 @@ export default function ProgramacaoPage() {
                 </div>
               </div>
 
-              <div className="space-y-4 p-6 md:p-8">
+              <div className="space-y-4 p-5 md:p-8">
                 {programacao.itens.map((item) => (
                   <div
                     key={`${programacao.dia}-${item.horario}-${item.titulo}`}
-                    className="grid gap-4 rounded-2xl border border-amber-200/10 bg-black/15 p-5 md:grid-cols-[130px_1fr] md:items-start"
+                    className="grid gap-4 rounded-2xl border border-amber-200/10 bg-black/15 p-5 md:grid-cols-[170px_1fr] md:items-start"
                   >
-                    <div className="rounded-xl bg-gradient-to-r from-amber-400 to-yellow-600 px-4 py-3 text-center font-black text-[#2b180d]">
+                    <div className="rounded-xl bg-gradient-to-r from-amber-400 to-yellow-600 px-4 py-3 text-center text-sm font-black text-[#2b180d]">
                       {item.horario}
                     </div>
 
@@ -183,9 +274,8 @@ export default function ProgramacaoPage() {
           </h2>
 
           <p className="mx-auto mt-4 max-w-2xl leading-7 text-amber-50/75">
-            Acompanhe os avisos oficiais do Congresso 2026 para saber
-            quando novos horários, ministrações e atividades forem
-            confirmados.
+            Acompanhe os avisos oficiais do Congresso 2026 para ficar
+            informado sobre qualquer alteração.
           </p>
 
           <a
@@ -195,7 +285,32 @@ export default function ProgramacaoPage() {
             Ver avisos
           </a>
         </div>
+
+        <div className="mt-10 text-center">
+          <p className="text-lg font-semibold text-amber-100">
+            Estamos preparando tudo com muito carinho para receber você.
+          </p>
+
+          <p className="mt-2 text-xl font-black text-amber-300">
+            Nos vemos no Congresso 2026! ❤️
+          </p>
+        </div>
       </section>
     </main>
+  );
+}
+
+function Resumo({
+  label,
+  valor,
+}: {
+  label: string;
+  valor: string;
+}) {
+  return (
+    <div className="rounded-2xl border border-amber-200/10 bg-white/5 p-5">
+      <p className="text-sm text-amber-200/70">{label}</p>
+      <p className="mt-2 text-lg font-bold">{valor}</p>
+    </div>
   );
 }
