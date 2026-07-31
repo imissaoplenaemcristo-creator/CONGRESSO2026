@@ -219,6 +219,7 @@ export default function PagamentosPage() {
       return;
     }
 
+    setPagamentoSelecionado(pagamento);
     setComprovanteAberto(true);
     setCarregandoComprovante(true);
     setErroComprovante("");
