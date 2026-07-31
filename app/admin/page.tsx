@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 type InscricaoDashboard = {
@@ -12,15 +12,22 @@ type InscricaoDashboard = {
 };
 
 export default function AdminPage() {
-  const [inscricoes, setInscricoes] = useState<
-    InscricaoDashboard[]
-  >([]);
+  const [inscricoes, setInscricoes] = useState<InscricaoDashboard[]>([]);
   const [carregando, setCarregando] = useState(true);
+  const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState("");
+  const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(
+    null
+  );
 
-  useEffect(() => {
-    async function carregarDashboard() {
-      setCarregando(true);
+  const carregarDashboard = useCallback(
+    async (primeiroCarregamento = false) => {
+      if (primeiroCarregamento) {
+        setCarregando(true);
+      } else {
+        setAtualizando(true);
+      }
+
       setErro("");
 
       const { data, error } = await supabase
@@ -36,111 +43,95 @@ export default function AdminPage() {
 
       if (error) {
         console.error("Erro ao carregar Dashboard:", error);
-        setErro(
-          "Não foi possível carregar os dados do painel."
-        );
+        setErro("Não foi possível carregar os dados do painel.");
         setCarregando(false);
+        setAtualizando(false);
         return;
       }
 
-      setInscricoes(
-        (data as InscricaoDashboard[]) ?? []
-      );
-
+      setInscricoes((data as InscricaoDashboard[]) ?? []);
+      setUltimaAtualizacao(new Date());
       setCarregando(false);
-    }
+      setAtualizando(false);
+    },
+    []
+  );
 
-    carregarDashboard();
-  }, []);
+  useEffect(() => {
+    void carregarDashboard(true);
+
+    const intervalo = window.setInterval(() => {
+      void carregarDashboard(false);
+    }, 30000);
+
+    return () => {
+      window.clearInterval(intervalo);
+    };
+  }, [carregarDashboard]);
 
   const indicadores = useMemo(() => {
     const totalInscritos = inscricoes.length;
 
     const gratuitos = inscricoes.filter(
-      (inscricao) =>
-        Number(inscricao.valor_inscricao ?? 0) === 0
+      (inscricao) => Number(inscricao.valor_inscricao ?? 0) === 0
     ).length;
 
     const pagos = inscricoes.filter((inscricao) => {
-      const status = normalizarStatus(
-        inscricao.status_pagamento
-      );
+      return pagamentoConfirmado(inscricao.status_pagamento);
+    }).length;
 
-      return status === "pago";
+    const cancelados = inscricoes.filter((inscricao) => {
+      return normalizarStatus(inscricao.status_pagamento) === "cancelado";
     }).length;
 
     const pendentes = inscricoes.filter((inscricao) => {
-      const valor = Number(
-        inscricao.valor_inscricao ?? 0
-      );
-
-      const status = normalizarStatus(
-        inscricao.status_pagamento
-      );
+      const valor = Number(inscricao.valor_inscricao ?? 0);
+      const status = normalizarStatus(inscricao.status_pagamento);
 
       return (
         valor > 0 &&
-        status !== "pago" &&
+        !pagamentoConfirmado(status) &&
         status !== "cancelado"
       );
     }).length;
 
     const checkins = inscricoes.filter(
-      (inscricao) =>
-        inscricao.checkin_realizado === true
+      (inscricao) => inscricao.checkin_realizado === true
     ).length;
 
-    const valorPrevisto = inscricoes.reduce(
-      (total, inscricao) => {
-        const status = normalizarStatus(
-          inscricao.status_pagamento
-        );
+    const aguardandoCheckin = Math.max(totalInscritos - checkins, 0);
 
-        if (status === "cancelado") {
-          return total;
-        }
+    const valorPrevisto = inscricoes.reduce((total, inscricao) => {
+      const status = normalizarStatus(inscricao.status_pagamento);
 
-        return (
-          total +
-          Number(inscricao.valor_inscricao ?? 0)
-        );
-      },
+      if (status === "cancelado") {
+        return total;
+      }
+
+      return total + Number(inscricao.valor_inscricao ?? 0);
+    }, 0);
+
+    const valorArrecadado = inscricoes.reduce((total, inscricao) => {
+      if (!pagamentoConfirmado(inscricao.status_pagamento)) {
+        return total;
+      }
+
+      return total + Number(inscricao.valor_inscricao ?? 0);
+    }, 0);
+
+    const inscricoesPagantes = Math.max(
+      totalInscritos - gratuitos - cancelados,
       0
     );
-
-    const valorArrecadado = inscricoes.reduce(
-      (total, inscricao) => {
-        const status = normalizarStatus(
-          inscricao.status_pagamento
-        );
-
-        if (status !== "pago") {
-          return total;
-        }
-
-        return (
-          total +
-          Number(inscricao.valor_inscricao ?? 0)
-        );
-      },
-      0
-    );
-
-    const inscricoesPagantes =
-      totalInscritos - gratuitos;
 
     const percentualPagamentos =
       inscricoesPagantes > 0
-        ? Math.round(
-            (pagos / inscricoesPagantes) * 100
-          )
+        ? Math.round((pagos / inscricoesPagantes) * 100)
         : 0;
 
     const percentualCheckins =
       totalInscritos > 0
-        ? Math.round(
-            (checkins / totalInscritos) * 100
-          )
+        ? Math.round((checkins / totalInscritos) * 100)
         : 0;
 
     return {
@@ -148,7 +139,9 @@ export default function AdminPage() {
       pagos,
       pendentes,
       gratuitos,
+      cancelados,
       checkins,
+      aguardandoCheckin,
       valorPrevisto,
       valorArrecadado,
       percentualPagamentos,
@@ -159,19 +152,41 @@ export default function AdminPage() {
   return (
     <main className="min-h-screen bg-[#1d120d] px-4 py-8 text-white sm:px-6 lg:px-8">
       <div className="mx-auto max-w-7xl">
-        <header>
-          <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300 sm:text-sm sm:tracking-[0.25em]">
-            Congresso 2026 — Até Transbordar
-          </p>
+        <header className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="text-xs font-bold uppercase tracking-[0.2em] text-amber-300 sm:text-sm sm:tracking-[0.25em]">
+              Congresso 2026 — Até Transbordar
+            </p>
 
-          <h1 className="mt-3 text-3xl font-black sm:text-4xl md:text-5xl">
-            Painel Administrativo
-          </h1>
+            <h1 className="mt-3 text-3xl font-black sm:text-4xl md:text-5xl">
+              Painel Administrativo
+            </h1>
 
-          <p className="mt-3 max-w-2xl text-sm text-amber-50/70 sm:text-base">
-            Acompanhe as inscrições, os pagamentos e
-            os check-ins do congresso.
-          </p>
+            <p className="mt-3 max-w-2xl text-sm text-amber-50/70 sm:text-base">
+              Acompanhe as inscrições, os pagamentos e os check-ins do
+              congresso.
+            </p>
+
+            {ultimaAtualizacao && (
+              <p className="mt-3 text-xs font-semibold text-amber-100/50">
+                Última atualização:{" "}
+                {ultimaAtualizacao.toLocaleTimeString("pt-BR", {
+                  hour: "2-digit",
+                  minute: "2-digit",
+                  second: "2-digit",
+                })}
+              </p>
+            )}
+          </div>
+
+          <button
+            type="button"
+            onClick={() => void carregarDashboard(false)}
+            disabled={carregando || atualizando}
+            className="rounded-xl border border-amber-300/30 bg-white/5 px-5 py-3 font-bold text-amber-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {atualizando ? "Atualizando..." : "Atualizar agora"}
+          </button>
         </header>
 
         {carregando && (
@@ -193,9 +208,7 @@ export default function AdminPage() {
             <section className="mt-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
               <CardIndicador
                 titulo="Total de inscritos"
-                valor={String(
-                  indicadores.totalInscritos
-                )}
+                valor={String(indicadores.totalInscritos)}
                 descricao="Participantes cadastrados"
                 icone="👥"
                 classeCor="text-amber-300"
@@ -213,9 +226,7 @@ export default function AdminPage() {
 
               <CardIndicador
                 titulo="Pendentes"
-                valor={String(
-                  indicadores.pendentes
-                )}
+                valor={String(indicadores.pendentes)}
                 descricao="Aguardando pagamento"
                 icone="⏳"
                 classeCor="text-yellow-300"
@@ -224,9 +235,7 @@ export default function AdminPage() {
 
               <CardIndicador
                 titulo="Check-ins"
-                valor={String(
-                  indicadores.checkins
-                )}
+                valor={String(indicadores.checkins)}
                 descricao={`${indicadores.percentualCheckins}% dos inscritos`}
                 icone="🎫"
                 classeCor="text-blue-300"
@@ -234,10 +243,17 @@ export default function AdminPage() {
               />
 
               <CardIndicador
+                titulo="Aguardando check-in"
+                valor={String(indicadores.aguardandoCheckin)}
+                descricao="Participantes que ainda não entraram"
+                icone="🚪"
+                classeCor="text-red-300"
+                classeBorda="border-red-400/20"
+              />
+
+              <CardIndicador
                 titulo="Valor arrecadado"
-                valor={formatarMoeda(
-                  indicadores.valorArrecadado
-                )}
+                valor={formatarMoeda(indicadores.valorArrecadado)}
                 descricao="Pagamentos confirmados"
                 icone="💰"
                 classeCor="text-green-300"
@@ -246,9 +262,7 @@ export default function AdminPage() {
 
               <CardIndicador
                 titulo="Valor previsto"
-                valor={formatarMoeda(
-                  indicadores.valorPrevisto
-                )}
+                valor={formatarMoeda(indicadores.valorPrevisto)}
                 descricao="Total das inscrições ativas"
                 icone="💵"
                 classeCor="text-amber-300"
@@ -257,22 +271,11 @@ export default function AdminPage() {
 
               <CardIndicador
                 titulo="Gratuitos"
-                valor={String(
-                  indicadores.gratuitos
-                )}
+                valor={String(indicadores.gratuitos)}
                 descricao="Inscrições sem cobrança"
                 icone="🎁"
                 classeCor="text-blue-300"
                 classeBorda="border-blue-400/20"
-              />
-
-              <CardIndicador
-                titulo="Pagamentos concluídos"
-                valor={`${indicadores.percentualPagamentos}%`}
-                descricao="Entre as inscrições pagantes"
-                icone="📈"
-                classeCor="text-purple-300"
-                classeBorda="border-purple-400/20"
               />
             </section>
 
@@ -280,13 +283,13 @@ export default function AdminPage() {
               <PainelProgresso
                 titulo="Situação dos pagamentos"
                 atual={indicadores.pagos}
-                total={
+                total={Math.max(
                   indicadores.totalInscritos -
-                  indicadores.gratuitos
-                }
-                percentual={
-                  indicadores.percentualPagamentos
-                }
+                    indicadores.gratuitos -
+                    indicadores.cancelados,
+                  0
+                )}
+                percentual={indicadores.percentualPagamentos}
                 descricao={`${indicadores.pagos} pagamentos confirmados e ${indicadores.pendentes} pendentes.`}
               />
 
@@ -294,10 +297,8 @@ export default function AdminPage() {
                 titulo="Andamento dos check-ins"
                 atual={indicadores.checkins}
                 total={indicadores.totalInscritos}
-                percentual={
-                  indicadores.percentualCheckins
-                }
-                descricao={`${indicadores.checkins} participantes já realizaram o check-in.`}
+                percentual={indicadores.percentualCheckins}
+                descricao={`${indicadores.checkins} participantes já entraram e ${indicadores.aguardandoCheckin} ainda faltam.`}
               />
             </section>
 
@@ -338,7 +339,7 @@ export default function AdminPage() {
                   href="/admin/relatorios"
                   icone="📊"
                   titulo="Relatórios"
-                  descricao="Consultar e exportar resultados"
+                  descricao="Consultar, importar e exportar dados"
                 />
               </div>
             </section>
@@ -409,17 +410,12 @@ function PainelProgresso({
   percentual: number;
   descricao: string;
 }) {
-  const percentualSeguro = Math.min(
-    Math.max(percentual, 0),
-    100
-  );
+  const percentualSeguro = Math.min(Math.max(percentual, 0), 100);
 
   return (
     <article className="rounded-2xl border border-amber-400/20 bg-white/5 p-5 sm:p-6">
       <div className="flex items-center justify-between gap-4">
-        <h2 className="font-black text-amber-200">
-          {titulo}
-        </h2>
+        <h2 className="font-black text-amber-200">{titulo}</h2>
 
         <span className="rounded-full bg-amber-400/10 px-3 py-1 text-sm font-bold text-amber-300">
           {percentualSeguro}%
@@ -429,15 +425,11 @@ function PainelProgresso({
       <div className="mt-5 h-3 overflow-hidden rounded-full bg-black/30">
         <div
           className="h-full rounded-full bg-amber-400 transition-all duration-500"
-          style={{
-            width: `${percentualSeguro}%`,
-          }}
+          style={{ width: `${percentualSeguro}%` }}
         />
       </div>
 
-      <p className="mt-4 text-sm text-amber-50/70">
-        {descricao}
-      </p>
+      <p className="mt-4 text-sm text-amber-50/70">{descricao}</p>
 
       <p className="mt-2 text-xs font-semibold text-amber-300">
         {atual} de {total}
@@ -466,13 +458,9 @@ function Atalho({
         {icone}
       </span>
 
-      <h3 className="mt-4 text-lg font-black text-amber-300">
-        {titulo}
-      </h3>
+      <h3 className="mt-4 text-lg font-black text-amber-300">{titulo}</h3>
 
-      <p className="mt-2 text-sm text-amber-50/60">
-        {descricao}
-      </p>
+      <p className="mt-2 text-sm text-amber-50/60">{descricao}</p>
 
       <p className="mt-4 text-sm font-bold text-amber-200 transition group-hover:translate-x-1">
         Acessar →
@@ -481,10 +469,28 @@ function Atalho({
   );
 }
 
-function normalizarStatus(
-  status: string | null
-) {
-  return status?.trim().toLowerCase() ?? "";
+function normalizarStatus(status: string | null) {
+  return (
+    status
+      ?.trim()
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "") ?? ""
+  );
+}
+
+function pagamentoConfirmado(status: string | null) {
+  const valor = normalizarStatus(status);
+
+  return [
+    "pago",
+    "aprovado",
+    "confirmado",
+    "paid",
+    "approved",
+    "completed",
+    "concluido",
+  ].includes(valor);
 }
 
 function formatarMoeda(valor: number) {
