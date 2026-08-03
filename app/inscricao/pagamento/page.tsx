@@ -248,7 +248,7 @@ export default function PagamentoPage() {
       }
 
       const { data, error: erroRegistro } = await supabase.rpc(
-        "registrar_comprovante_pix",
+        "registrar_comprovante_inicial_pix",
         {
           token_informado: token,
           caminho_arquivo: caminhoArquivo,

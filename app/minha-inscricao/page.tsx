@@ -22,6 +22,25 @@ type Inscricao = {
   qr_token: string | null;
 };
 
+type ResumoPagamento = {
+  valor_total: number;
+  total_aprovado: number;
+  valor_em_analise: number;
+  saldo_restante: number;
+  existe_pagamento_em_analise: boolean;
+  pagamento_concluido: boolean;
+};
+
+type PagamentoParcial = {
+  id: string;
+  valor: number;
+  comprovante_url: string;
+  status: "em_analise" | "aprovado" | "recusado";
+  motivo_recusa: string | null;
+  criado_em: string;
+  analisado_em: string | null;
+};
+
 function formatarMoeda(valor: number | null) {
   return new Intl.NumberFormat("pt-BR", {
     style: "currency",
@@ -71,6 +90,10 @@ function formatarPagamento(pagamento: string | null) {
     return "Cartão";
   }
 
+  if (pagamento === "carne") {
+    return "Carnê";
+  }
+
   return pagamento || "Não informado";
 }
 
@@ -86,7 +109,13 @@ function formatarStatus(status: string | null) {
     cancelado: "Cancelada",
     cancelada: "Cancelada",
     pago: "Pago",
+    parcial: "Pagamento parcial",
+    gratuito: "Gratuito",
+    cortesia: "Cortesia",
     isento: "Isento",
+    em_analise: "Em análise",
+    aprovado: "Aprovado",
+    recusado: "Recusado",
     pagamento_em_analise: "Pagamento em análise",
     "pagamento em análise": "Pagamento em análise",
   };
@@ -112,6 +141,50 @@ export default function MinhaInscricaoPage() {
   const [consultou, setConsultou] = useState(false);
   const [qrCode, setQrCode] = useState("");
   const [compartilhando, setCompartilhando] = useState(false);
+  const [resumoPagamento, setResumoPagamento] =
+    useState<ResumoPagamento | null>(null);
+  const [historicoPagamentos, setHistoricoPagamentos] =
+    useState<PagamentoParcial[]>([]);
+  const [valorNovoPagamento, setValorNovoPagamento] = useState("");
+  const [arquivoComprovante, setArquivoComprovante] =
+    useState<File | null>(null);
+  const [enviandoPagamento, setEnviandoPagamento] = useState(false);
+  const [mensagemPagamento, setMensagemPagamento] = useState("");
+
+
+  async function carregarPagamentos(numeroInscricao: number) {
+    const [resumoResposta, historicoResposta] = await Promise.all([
+      supabase.rpc("consultar_resumo_pagamento", {
+        numero_informado: numeroInscricao,
+      }),
+      supabase.rpc("listar_pagamentos_parciais", {
+        numero_informado: numeroInscricao,
+      }),
+    ]);
+
+    if (resumoResposta.error) throw resumoResposta.error;
+    if (historicoResposta.error) throw historicoResposta.error;
+
+    const r = Array.isArray(resumoResposta.data)
+      ? resumoResposta.data[0]
+      : resumoResposta.data;
+
+    setResumoPagamento(r ? {
+      valor_total: Number(r.valor_total ?? 0),
+      total_aprovado: Number(r.total_aprovado ?? 0),
+      valor_em_analise: Number(r.valor_em_analise ?? 0),
+      saldo_restante: Number(r.saldo_restante ?? 0),
+      existe_pagamento_em_analise: Boolean(r.existe_pagamento_em_analise),
+      pagamento_concluido: Boolean(r.pagamento_concluido),
+    } : null);
+
+    setHistoricoPagamentos(
+      ((historicoResposta.data ?? []) as PagamentoParcial[]).map((p) => ({
+        ...p,
+        valor: Number(p.valor ?? 0),
+      }))
+    );
+  }
 
   async function consultarInscricao(event: FormEvent) {
     event.preventDefault();
@@ -119,6 +192,11 @@ export default function MinhaInscricaoPage() {
     setErro("");
     setInscricao(null);
     setConsultou(false);
+    setResumoPagamento(null);
+    setHistoricoPagamentos([]);
+    setMensagemPagamento("");
+    setValorNovoPagamento("");
+    setArquivoComprovante(null);
 
     const cpfSomenteNumeros = documento.replace(/\D/g, "");
 
@@ -160,6 +238,7 @@ export default function MinhaInscricaoPage() {
 
       const inscricaoEncontrada = resultado as Inscricao;
       setInscricao(inscricaoEncontrada);
+      await carregarPagamentos(inscricaoEncontrada.numero_inscricao);
 
       const statusPagamento = String(
         inscricaoEncontrada.status_pagamento ?? ""
@@ -207,6 +286,117 @@ export default function MinhaInscricaoPage() {
     setErro("");
     setConsultou(false);
     setQrCode("");
+    setResumoPagamento(null);
+    setHistoricoPagamentos([]);
+    setValorNovoPagamento("");
+    setArquivoComprovante(null);
+    setMensagemPagamento("");
+  }
+
+
+  async function enviarPagamentoParcial(event: FormEvent) {
+    event.preventDefault();
+
+    if (!inscricao || !resumoPagamento) return;
+
+    setMensagemPagamento("");
+
+    const valor = Number(valorNovoPagamento.replace(",", "."));
+
+    if (!Number.isFinite(valor) || valor <= 0) {
+      setMensagemPagamento("Informe um valor válido maior que zero.");
+      return;
+    }
+
+    if (valor > resumoPagamento.saldo_restante) {
+      setMensagemPagamento(
+        `O valor não pode ultrapassar ${formatarMoeda(
+          resumoPagamento.saldo_restante
+        )}.`
+      );
+      return;
+    }
+
+    if (!arquivoComprovante) {
+      setMensagemPagamento("Selecione o comprovante.");
+      return;
+    }
+
+    if (
+      !["image/jpeg", "image/png", "application/pdf"].includes(
+        arquivoComprovante.type
+      )
+    ) {
+      setMensagemPagamento("Envie JPG, PNG ou PDF.");
+      return;
+    }
+
+    if (arquivoComprovante.size > 5 * 1024 * 1024) {
+      setMensagemPagamento("O arquivo deve ter no máximo 5 MB.");
+      return;
+    }
+
+    setEnviandoPagamento(true);
+
+    const nomeSeguro = arquivoComprovante.name
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/[^a-zA-Z0-9._-]/g, "-");
+
+    const caminho = `${inscricao.numero_inscricao}/${Date.now()}-${nomeSeguro}`;
+
+    try {
+      const { error: erroUpload } = await supabase.storage
+        .from("comprovantes-parciais")
+        .upload(caminho, arquivoComprovante, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (erroUpload) {
+        setMensagemPagamento("Não foi possível enviar o comprovante.");
+        return;
+      }
+
+      const { error: erroRegistro } = await supabase.rpc(
+        "registrar_pagamento_parcial",
+        {
+          numero_informado: inscricao.numero_inscricao,
+          valor_informado: valor,
+          comprovante_informado: caminho,
+        }
+      );
+
+      if (erroRegistro) {
+        await supabase.storage
+          .from("comprovantes-parciais")
+          .remove([caminho]);
+
+        setMensagemPagamento(
+          erroRegistro.message || "Não foi possível registrar o pagamento."
+        );
+        return;
+      }
+
+      setValorNovoPagamento("");
+      setArquivoComprovante(null);
+      setMensagemPagamento(
+        "Pagamento enviado com sucesso! O comprovante está em análise."
+      );
+
+      setInscricao((anterior) =>
+        anterior
+          ? { ...anterior, status_pagamento: "pagamento em análise" }
+          : anterior
+      );
+
+      await carregarPagamentos(inscricao.numero_inscricao);
+    } catch (e) {
+      console.error(e);
+      setMensagemPagamento("Ocorreu um erro ao enviar o pagamento.");
+    } finally {
+      setEnviandoPagamento(false);
+    }
   }
 
   async function baixarComprovante() {
@@ -561,6 +751,175 @@ export default function MinhaInscricaoPage() {
               )}
             </div>
 
+
+            {resumoPagamento && (
+              <>
+                <section className="mt-8 rounded-3xl border border-amber-200/15 bg-white/5 p-5 md:p-6">
+                  <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-300">
+                    Resumo do pagamento
+                  </p>
+
+                  <div className="mt-5 grid gap-4 sm:grid-cols-3">
+                    <ResumoFinanceiro
+                      titulo="Valor total"
+                      valor={formatarMoeda(resumoPagamento.valor_total)}
+                    />
+                    <ResumoFinanceiro
+                      titulo="Total aprovado"
+                      valor={formatarMoeda(resumoPagamento.total_aprovado)}
+                    />
+                    <ResumoFinanceiro
+                      titulo="Saldo restante"
+                      valor={formatarMoeda(resumoPagamento.saldo_restante)}
+                      destaque
+                    />
+                  </div>
+
+                  {resumoPagamento.valor_em_analise > 0 && (
+                    <div className="mt-5 rounded-2xl border border-orange-300/20 bg-orange-500/10 p-4 text-orange-100">
+                      Existe um pagamento de{" "}
+                      <strong>
+                        {formatarMoeda(resumoPagamento.valor_em_analise)}
+                      </strong>{" "}
+                      aguardando análise.
+                    </div>
+                  )}
+                </section>
+
+                {inscricao.forma_pagamento === "pix" &&
+                  !resumoPagamento.pagamento_concluido && (
+                    <section className="mt-8 rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5 md:p-6">
+                      <h3 className="text-xl font-black text-amber-300">
+                        Novo pagamento via PIX
+                      </h3>
+
+                      {resumoPagamento.existe_pagamento_em_analise ? (
+                        <div className="mt-5 rounded-2xl border border-orange-300/20 bg-orange-500/10 p-5 text-orange-100">
+                          Aguarde a conferência do comprovante atual antes
+                          de enviar um novo pagamento.
+                        </div>
+                      ) : (
+                        <form
+                          onSubmit={enviarPagamentoParcial}
+                          className="mt-5 space-y-5"
+                        >
+                          <label className="block">
+                            <span className="mb-2 block font-semibold">
+                              Qual valor deseja pagar agora?
+                            </span>
+                            <input
+                              type="text"
+                              inputMode="decimal"
+                              value={valorNovoPagamento}
+                              onChange={(event) =>
+                                setValorNovoPagamento(
+                                  event.target.value.replace(/[^0-9,.]/g, "")
+                                )
+                              }
+                              placeholder="Ex.: 100,00"
+                              className="w-full rounded-xl border border-amber-200/20 bg-black/20 px-4 py-4 text-lg outline-none focus:border-amber-400"
+                            />
+                            <span className="mt-2 block text-sm text-amber-50/60">
+                              Máximo:{" "}
+                              {formatarMoeda(resumoPagamento.saldo_restante)}
+                            </span>
+                          </label>
+
+                          <label className="block">
+                            <span className="mb-2 block font-semibold">
+                              Comprovante obrigatório
+                            </span>
+                            <input
+                              type="file"
+                              accept=".jpg,.jpeg,.png,.pdf,image/jpeg,image/png,application/pdf"
+                              onChange={(event) =>
+                                setArquivoComprovante(
+                                  event.target.files?.[0] ?? null
+                                )
+                              }
+                              className="block w-full rounded-xl border border-amber-200/20 bg-black/20 p-3 text-sm file:mr-4 file:rounded-lg file:border-0 file:bg-amber-400 file:px-4 file:py-2 file:font-bold file:text-[#2b180d]"
+                            />
+                            <span className="mt-2 block text-sm text-amber-50/60">
+                              JPG, PNG ou PDF, até 5 MB.
+                            </span>
+                          </label>
+
+                          {mensagemPagamento && (
+                            <div
+                              className={`rounded-2xl border p-4 ${
+                                mensagemPagamento.includes("sucesso")
+                                  ? "border-green-300/20 bg-green-500/10 text-green-100"
+                                  : "border-red-300/20 bg-red-500/10 text-red-100"
+                              }`}
+                            >
+                              {mensagemPagamento}
+                            </div>
+                          )}
+
+                          <button
+                            type="submit"
+                            disabled={
+                              enviandoPagamento ||
+                              !arquivoComprovante ||
+                              !valorNovoPagamento
+                            }
+                            className="w-full rounded-xl bg-gradient-to-r from-amber-400 to-yellow-600 px-6 py-4 font-black text-[#2b180d] disabled:cursor-not-allowed disabled:opacity-50"
+                          >
+                            {enviandoPagamento
+                              ? "Enviando..."
+                              : "Enviar pagamento para análise"}
+                          </button>
+                        </form>
+                      )}
+                    </section>
+                  )}
+
+                <section className="mt-8 rounded-3xl border border-amber-200/15 bg-white/5 p-5 md:p-6">
+                  <h3 className="text-xl font-black text-amber-300">
+                    Histórico de pagamentos PIX
+                  </h3>
+
+                  {historicoPagamentos.length === 0 ? (
+                    <p className="mt-4 text-amber-50/60">
+                      Nenhum pagamento parcial enviado.
+                    </p>
+                  ) : (
+                    <div className="mt-5 space-y-4">
+                      {historicoPagamentos.map((pagamento) => (
+                        <div
+                          key={pagamento.id}
+                          className="rounded-2xl border border-amber-200/10 bg-black/20 p-5"
+                        >
+                          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div>
+                              <p className="text-xl font-black">
+                                {formatarMoeda(pagamento.valor)}
+                              </p>
+                              <p className="mt-1 text-sm text-amber-50/60">
+                                Enviado em{" "}
+                                {formatarDataHora(pagamento.criado_em)}
+                              </p>
+                            </div>
+
+                            <StatusPagamentoParcial
+                              status={pagamento.status}
+                            />
+                          </div>
+
+                          {pagamento.status === "recusado" && (
+                            <div className="mt-4 rounded-xl border border-red-300/20 bg-red-500/10 p-4 text-red-100">
+                              <strong>Motivo:</strong>{" "}
+                              {pagamento.motivo_recusa || "Não informado."}
+                            </div>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </section>
+              </>
+            )}
+
             {qrCode ? (
               <div className="mt-8 rounded-3xl border border-emerald-300/20 bg-emerald-500/10 p-6 text-center">
                 <h3 className="text-xl font-black text-emerald-300">
@@ -637,6 +996,59 @@ export default function MinhaInscricaoPage() {
         )}
       </div>
     </main>
+  );
+}
+
+
+function ResumoFinanceiro({
+  titulo,
+  valor,
+  destaque = false,
+}: {
+  titulo: string;
+  valor: string;
+  destaque?: boolean;
+}) {
+  return (
+    <div
+      className={`rounded-2xl border p-5 ${
+        destaque
+          ? "border-amber-300/30 bg-amber-300/10"
+          : "border-amber-200/10 bg-black/20"
+      }`}
+    >
+      <p className="text-sm text-amber-200/70">{titulo}</p>
+      <p className="mt-2 text-2xl font-black text-white">{valor}</p>
+    </div>
+  );
+}
+
+function StatusPagamentoParcial({
+  status,
+}: {
+  status: PagamentoParcial["status"];
+}) {
+  const configuracao = {
+    em_analise: {
+      texto: "Em análise",
+      classe: "border-orange-300/20 bg-orange-500/10 text-orange-200",
+    },
+    aprovado: {
+      texto: "Aprovado",
+      classe: "border-green-300/20 bg-green-500/10 text-green-200",
+    },
+    recusado: {
+      texto: "Recusado",
+      classe: "border-red-300/20 bg-red-500/10 text-red-200",
+    },
+  }[status];
+
+  return (
+    <span
+      className={`w-fit rounded-full border px-4 py-2 text-sm font-bold ${configuracao.classe}`}
+    >
+      {configuracao.texto}
+    </span>
   );
 }
 
