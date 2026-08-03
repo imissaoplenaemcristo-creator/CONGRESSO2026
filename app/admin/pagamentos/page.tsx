@@ -95,13 +95,12 @@ export default function PagamentosPage() {
 
     const [inscricoesResposta, pagamentosResposta] =
       await Promise.all([
-        supabase.rpc("admin_listar_pagamentos_parciais"),
         supabase
-          .from("pagamentos_parciais")
-          .select(
-            "id, numero_inscricao, valor, comprovante_url, status, motivo_recusa, criado_em, analisado_em, forma_pagamento, observacao, origem"
-          )
-          .order("criado_em", { ascending: false }),
+          .from("inscricoes")
+          .select(camposInscricao)
+          .order("numero_inscricao", { ascending: false }),
+
+        supabase.rpc("admin_listar_pagamentos_parciais"),
       ]);
 
     if (inscricoesResposta.error) {
