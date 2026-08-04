@@ -6,6 +6,8 @@ import QRCode from "qrcode";
 import { jsPDF } from "jspdf";
 import { supabase } from "../lib/supabase";
 
+const CHAVE_PIX = "14.847.657/0001-01";
+
 type Inscricao = {
   numero_inscricao: number;
   nome: string;
@@ -150,6 +152,7 @@ export default function MinhaInscricaoPage() {
     useState<File | null>(null);
   const [enviandoPagamento, setEnviandoPagamento] = useState(false);
   const [mensagemPagamento, setMensagemPagamento] = useState("");
+  const [chavePixCopiada, setChavePixCopiada] = useState(false);
 
 
   async function carregarPagamentos(numeroInscricao: number) {
@@ -293,6 +296,20 @@ export default function MinhaInscricaoPage() {
     setMensagemPagamento("");
   }
 
+
+  async function copiarChavePix() {
+    try {
+      await navigator.clipboard.writeText(CHAVE_PIX);
+      setChavePixCopiada(true);
+
+      window.setTimeout(() => {
+        setChavePixCopiada(false);
+      }, 2500);
+    } catch (erro) {
+      console.error("Erro ao copiar a chave PIX:", erro);
+      window.prompt("Copie a chave PIX abaixo:", CHAVE_PIX);
+    }
+  }
 
   async function enviarPagamentoParcial(event: FormEvent) {
     event.preventDefault();
@@ -761,17 +778,21 @@ export default function MinhaInscricaoPage() {
 
                   <div className="mt-5 grid gap-4 sm:grid-cols-3">
                     <ResumoFinanceiro
-                      titulo="Valor total"
+                      titulo="Valor da inscrição"
                       valor={formatarMoeda(resumoPagamento.valor_total)}
+                      tipo="normal"
                     />
+
                     <ResumoFinanceiro
-                      titulo="Total aprovado"
+                      titulo="Total pago"
                       valor={formatarMoeda(resumoPagamento.total_aprovado)}
+                      tipo="pago"
                     />
+
                     <ResumoFinanceiro
-                      titulo="Saldo restante"
+                      titulo="Falta pagar"
                       valor={formatarMoeda(resumoPagamento.saldo_restante)}
-                      destaque
+                      tipo="restante"
                     />
                   </div>
 
@@ -792,6 +813,44 @@ export default function MinhaInscricaoPage() {
                       <h3 className="text-xl font-black text-amber-300">
                         Novo pagamento via PIX
                       </h3>
+
+                      <div className="mt-5 rounded-3xl border border-amber-200/15 bg-black/20 p-5 text-center md:p-6">
+                        <h4 className="text-xl font-black text-white">
+                          💳 Pagamento via PIX
+                        </h4>
+
+                        <p className="mt-2 text-sm leading-6 text-amber-50/70">
+                          Escaneie o QR Code abaixo ou utilize a chave PIX.
+                        </p>
+
+                        <div className="mx-auto mt-6 w-full max-w-lg overflow-hidden rounded-3xl bg-white shadow-xl">
+  <img
+    src="/qr-code-pix.png"
+    alt="QR Code para pagamento via PIX"
+    className="block w-full scale-125 object-contain"
+  />
+</div>
+
+                        <div className="mt-5 rounded-2xl border border-amber-200/15 bg-white/5 p-4">
+                          <p className="text-xs font-black uppercase tracking-[0.15em] text-amber-300">
+                            Chave PIX — CNPJ
+                          </p>
+
+                          <p className="mt-3 break-all text-xl font-black text-white">
+                            {CHAVE_PIX}
+                          </p>
+
+                          <button
+                            type="button"
+                            onClick={copiarChavePix}
+                            className="mt-4 w-full rounded-xl bg-gradient-to-r from-amber-400 to-yellow-600 px-5 py-3 font-black text-[#2b180d] transition hover:brightness-105"
+                          >
+                            {chavePixCopiada
+                              ? "✅ Chave PIX copiada"
+                              : "📋 Copiar chave PIX"}
+                          </button>
+                        </div>
+                      </div>
 
                       {resumoPagamento.existe_pagamento_em_analise ? (
                         <div className="mt-5 rounded-2xl border border-orange-300/20 bg-orange-500/10 p-5 text-orange-100">
@@ -1003,22 +1062,46 @@ export default function MinhaInscricaoPage() {
 function ResumoFinanceiro({
   titulo,
   valor,
-  destaque = false,
+  tipo = "normal",
 }: {
   titulo: string;
   valor: string;
-  destaque?: boolean;
+  tipo?: "normal" | "pago" | "restante";
 }) {
+  const estilos = {
+    normal: {
+      card: "border-amber-200/10 bg-black/20",
+      titulo: "text-amber-200/70",
+      valor: "text-white",
+      icone: "💰",
+    },
+    pago: {
+      card: "border-green-300/25 bg-green-500/10",
+      titulo: "text-green-200/80",
+      valor: "text-green-300",
+      icone: "✅",
+    },
+    restante: {
+      card: "border-amber-300/35 bg-amber-400/10",
+      titulo: "text-amber-200",
+      valor: "text-amber-300",
+      icone: "⚠️",
+    },
+  }[tipo];
+
   return (
-    <div
-      className={`rounded-2xl border p-5 ${
-        destaque
-          ? "border-amber-300/30 bg-amber-300/10"
-          : "border-amber-200/10 bg-black/20"
-      }`}
-    >
-      <p className="text-sm text-amber-200/70">{titulo}</p>
-      <p className="mt-2 text-2xl font-black text-white">{valor}</p>
+    <div className={`rounded-2xl border p-5 ${estilos.card}`}>
+      <div className="flex items-center gap-2">
+        <span aria-hidden="true">{estilos.icone}</span>
+
+        <p className={`text-sm font-semibold ${estilos.titulo}`}>
+          {titulo}
+        </p>
+      </div>
+
+      <p className={`mt-3 text-2xl font-black ${estilos.valor}`}>
+        {valor}
+      </p>
     </div>
   );
 }
