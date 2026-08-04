@@ -58,14 +58,14 @@ export default function AvisosPage() {
               <div className="rounded-2xl border border-amber-200/10 bg-black/20 p-5">
                 <p className="font-black text-white">Homens</p>
                 <p className="mt-2 leading-7 text-amber-50/75">
-                  Short ou bermuda.
+                  Obrigatório o uso de short ou bermuda e regata para utilizar a piscina.
                 </p>
               </div>
 
               <div className="rounded-2xl border border-amber-200/10 bg-black/20 p-5">
                 <p className="font-black text-white">Mulheres</p>
                 <p className="mt-2 leading-7 text-amber-50/75">
-                  Short e regata sobre o biquíni.
+                  Obrigatório o uso de short e regata sobre o biquíni para utilizar a piscina.
                 </p>
               </div>
             </div>
