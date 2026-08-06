@@ -11,11 +11,19 @@ type InscricaoDashboard = {
   checkin_realizado: boolean | null;
 };
 
+type ResumoFinanceiroDashboard = {
+  total_previsto: number;
+  total_arrecadado: number;
+  total_restante: number;
+};
+
 export default function AdminPage() {
   const [inscricoes, setInscricoes] = useState<InscricaoDashboard[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [atualizando, setAtualizando] = useState(false);
   const [erro, setErro] = useState("");
+  const [resumoFinanceiro, setResumoFinanceiro] =
+    useState<ResumoFinanceiroDashboard | null>(null);
   const [ultimaAtualizacao, setUltimaAtualizacao] = useState<Date | null>(
     null
   );
@@ -30,26 +38,66 @@ export default function AdminPage() {
 
       setErro("");
 
-      const { data, error } = await supabase
-        .from("inscricoes")
-        .select(
-          `
-            numero_inscricao,
-            valor_inscricao,
-            status_pagamento,
-            checkin_realizado
-          `
-        );
+      const [inscricoesResposta, resumoResposta] = await Promise.all([
+        supabase
+          .from("inscricoes")
+          .select(
+            `
+              numero_inscricao,
+              valor_inscricao,
+              status_pagamento,
+              checkin_realizado
+            `
+          ),
 
-      if (error) {
-        console.error("Erro ao carregar Dashboard:", error);
+        supabase.rpc("admin_resumo_financeiro"),
+      ]);
+
+      if (inscricoesResposta.error) {
+        console.error(
+          "Erro ao carregar inscrições do Dashboard:",
+          inscricoesResposta.error
+        );
         setErro("Não foi possível carregar os dados do painel.");
         setCarregando(false);
         setAtualizando(false);
         return;
       }
 
-      setInscricoes((data as InscricaoDashboard[]) ?? []);
+      if (resumoResposta.error) {
+        console.error(
+          "Erro ao carregar resumo financeiro:",
+          resumoResposta.error
+        );
+        setErro("Não foi possível carregar o resumo financeiro.");
+        setCarregando(false);
+        setAtualizando(false);
+        return;
+      }
+
+      const resumoBruto = Array.isArray(resumoResposta.data)
+        ? resumoResposta.data[0]
+        : resumoResposta.data;
+
+      setInscricoes(
+        (inscricoesResposta.data as InscricaoDashboard[]) ?? []
+      );
+
+      setResumoFinanceiro(
+        resumoBruto
+          ? {
+              total_previsto: Number(
+                resumoBruto.total_previsto ?? 0
+              ),
+              total_arrecadado: Number(
+                resumoBruto.total_arrecadado ?? 0
+              ),
+              total_restante: Number(
+                resumoBruto.total_restante ?? 0
+              ),
+            }
+          : null
+      );
       setUltimaAtualizacao(new Date());
       setCarregando(false);
       setAtualizando(false);
@@ -101,23 +149,23 @@ export default function AdminPage() {
 
     const aguardandoCheckin = Math.max(totalInscritos - checkins, 0);
 
-    const valorPrevisto = inscricoes.reduce((total, inscricao) => {
-      const status = normalizarStatus(inscricao.status_pagamento);
+    const valorPrevisto = resumoFinanceiro
+      ? resumoFinanceiro.total_previsto
+      : inscricoes.reduce((total, inscricao) => {
+          const status = normalizarStatus(
+            inscricao.status_pagamento
+          );
 
-      if (status === "cancelado") {
-        return total;
-      }
+          if (status === "cancelado") {
+            return total;
+          }
 
-      return total + Number(inscricao.valor_inscricao ?? 0);
-    }, 0);
+          return total + Number(inscricao.valor_inscricao ?? 0);
+        }, 0);
 
-    const valorArrecadado = inscricoes.reduce((total, inscricao) => {
-      if (!pagamentoConfirmado(inscricao.status_pagamento)) {
-        return total;
-      }
-
-      return total + Number(inscricao.valor_inscricao ?? 0);
-    }, 0);
+    const valorArrecadado = resumoFinanceiro
+      ? resumoFinanceiro.total_arrecadado
+      : 0;
 
     const inscricoesPagantes = Math.max(
       totalInscritos - gratuitos - cancelados,
@@ -147,7 +195,7 @@ export default function AdminPage() {
       percentualPagamentos,
       percentualCheckins,
     };
-  }, [inscricoes]);
+  }, [inscricoes, resumoFinanceiro]);
 
   return (
     <main className="min-h-screen bg-[#1d120d] px-4 py-8 text-white sm:px-6 lg:px-8">

@@ -23,6 +23,12 @@ type Inscricao = {
   [chave: string]: unknown;
 };
 
+type ResumoFinanceiro = {
+  total_previsto: number;
+  total_arrecadado: number;
+  total_restante: number;
+};
+
 type FiltroPagamento = "todos" | "pagos" | "pendentes";
 type FiltroCheckin = "todos" | "realizados" | "pendentes";
 
@@ -215,6 +221,12 @@ export default function RelatoriosPage() {
   const [inscricoes, setInscricoes] = useState<Inscricao[]>([]);
   const [carregando, setCarregando] = useState(true);
   const [mensagem, setMensagem] = useState("");
+  const [resumoFinanceiro, setResumoFinanceiro] =
+    useState<ResumoFinanceiro>({
+      total_previsto: 0,
+      total_arrecadado: 0,
+      total_restante: 0,
+    });
   const [busca, setBusca] = useState("");
   const [filtroPagamento, setFiltroPagamento] =
     useState<FiltroPagamento>("todos");
@@ -225,15 +237,17 @@ export default function RelatoriosPage() {
     setCarregando(true);
     setMensagem("");
 
-    const { data, error } = await supabase
-      .from("inscricoes")
-      .select("*");
-      
-console.log("Dados:", data);
-console.log("Erro:", error);
-    
-    if (error) {
-      console.error(error);
+    const [inscricoesResposta, resumoResposta] = await Promise.all([
+      supabase.from("inscricoes").select("*"),
+      supabase.rpc("admin_resumo_financeiro"),
+    ]);
+
+    if (inscricoesResposta.error) {
+      console.error(
+        "Erro ao carregar inscrições do relatório:",
+        inscricoesResposta.error
+      );
+
       setMensagem(
         "Não foi possível carregar os relatórios. Verifique a conexão e as permissões do Supabase."
       );
@@ -242,7 +256,38 @@ console.log("Erro:", error);
       return;
     }
 
-    setInscricoes((data ?? []) as Inscricao[]);
+    if (resumoResposta.error) {
+      console.error(
+        "Erro ao carregar resumo financeiro:",
+        resumoResposta.error
+      );
+
+      setMensagem(
+        "Não foi possível carregar o resumo financeiro do relatório."
+      );
+      setInscricoes([]);
+      setCarregando(false);
+      return;
+    }
+
+    const resumoBruto = Array.isArray(resumoResposta.data)
+      ? resumoResposta.data[0]
+      : resumoResposta.data;
+
+    setInscricoes(
+      (inscricoesResposta.data ?? []) as Inscricao[]
+    );
+
+    setResumoFinanceiro({
+      total_previsto: Number(resumoBruto?.total_previsto ?? 0),
+      total_arrecadado: Number(
+        resumoBruto?.total_arrecadado ?? 0
+      ),
+      total_restante: Number(
+        resumoBruto?.total_restante ?? 0
+      ),
+    });
+
     setCarregando(false);
   }, []);
 
@@ -269,20 +314,11 @@ console.log("Erro:", error);
 
     const checkinsPendentes = Math.max(0, total - checkinsRealizados);
 
-    const valorArrecadado = inscricoes.reduce((totalAtual, item) => {
-      if (!pagamentoConfirmado(item.status_pagamento)) {
-        return totalAtual;
-      }
+    const valorArrecadado =
+      resumoFinanceiro.total_arrecadado;
 
-      const valorPago = converterNumero(item.valor_pago);
-
-      return totalAtual + (valorPago > 0 ? valorPago : obterValor(item));
-    }, 0);
-
-    const valorPrevisto = inscricoes.reduce(
-      (totalAtual, item) => totalAtual + obterValor(item),
-      0
-    );
+    const valorPrevisto =
+      resumoFinanceiro.total_previsto;
 
     return {
       total,
@@ -293,8 +329,9 @@ console.log("Erro:", error);
       checkinsPendentes,
       valorArrecadado,
       valorPrevisto,
+      valorRestante: resumoFinanceiro.total_restante,
     };
-  }, [inscricoes]);
+  }, [inscricoes, resumoFinanceiro]);
 
   const inscricoesFiltradas = useMemo(() => {
     const termo = normalizarTexto(busca);
@@ -486,6 +523,13 @@ console.log("Erro:", error);
               valor={formatarMoeda(estatisticas.valorPrevisto)}
               descricao="Total estimado das inscrições"
               icone="📈"
+            />
+
+            <CardEstatistica
+              titulo="Valor restante"
+              valor={formatarMoeda(estatisticas.valorRestante)}
+              descricao="Total que ainda falta receber"
+              icone="🧾"
             />
           </section>
 
