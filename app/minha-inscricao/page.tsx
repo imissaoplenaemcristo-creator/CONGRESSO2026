@@ -611,6 +611,9 @@ export default function MinhaInscricaoPage() {
     }
   }
 
+  const inscricaoCortesia =
+    String(inscricao?.status_pagamento ?? "").toLowerCase() === "cortesia";
+
   return (
     <main className="min-h-screen bg-gradient-to-b from-[#21150f] via-[#4a2d18] to-[#160e0a] px-5 py-10 text-white">
       <div className="mx-auto max-w-3xl">
@@ -730,24 +733,28 @@ export default function MinhaInscricaoPage() {
                 )}
               />
 
-              <Item
-                titulo="Valor da inscrição"
-                valor={formatarMoeda(
-                  inscricao.valor_inscricao
-                )}
-              />
+              {!inscricaoCortesia && (
+                <>
+                  <Item
+                    titulo="Valor da inscrição"
+                    valor={formatarMoeda(
+                      inscricao.valor_inscricao
+                    )}
+                  />
 
-              <Item
-                titulo="Valor pago"
-                valor={formatarMoeda(inscricao.valor_pago)}
-              />
+                  <Item
+                    titulo="Valor pago"
+                    valor={formatarMoeda(inscricao.valor_pago)}
+                  />
 
-              <Item
-                titulo="Pagamento confirmado em"
-                valor={formatarDataHora(
-                  inscricao.pagamento_confirmado_em
-                )}
-              />
+                  <Item
+                    titulo="Pagamento confirmado em"
+                    valor={formatarDataHora(
+                      inscricao.pagamento_confirmado_em
+                    )}
+                  />
+                </>
+              )}
 
               <Item
                 titulo="Check-in"
@@ -769,7 +776,18 @@ export default function MinhaInscricaoPage() {
             </div>
 
 
-            {resumoPagamento && (
+            {inscricaoCortesia ? (
+              <section className="mt-8 rounded-3xl border border-violet-300/25 bg-violet-500/10 p-6 text-center">
+                <div className="text-4xl" aria-hidden="true">🎁</div>
+                <h3 className="mt-3 text-xl font-black text-violet-200">
+                  Inscrição Cortesia
+                </h3>
+                <p className="mx-auto mt-3 max-w-xl leading-7 text-amber-50/80">
+                  Sua participação no Congresso 2026 foi liberada pela organização.
+                  Não há nenhum valor pendente para pagamento.
+                </p>
+              </section>
+            ) : resumoPagamento && (
               <>
                 <section className="mt-8 rounded-3xl border border-amber-200/15 bg-white/5 p-5 md:p-6">
                   <p className="text-sm font-bold uppercase tracking-[0.2em] text-amber-300">
