@@ -86,6 +86,7 @@ export default function PagamentosPage() {
   const [formaManual, setFormaManual] = useState("dinheiro");
   const [observacaoManual, setObservacaoManual] = useState("");
   const [registrandoManual, setRegistrandoManual] = useState(false);
+  const [processandoCortesia, setProcessandoCortesia] = useState(false);
   const [valorConfirmadoComprovante, setValorConfirmadoComprovante] =
     useState("");
 
@@ -153,6 +154,9 @@ export default function PagamentosPage() {
           );
 
         const valorTotal = Number(inscricao.valor_inscricao ?? 0);
+        const statusInscricao = normalizarStatus(
+          inscricao.status_pagamento
+        );
 
         return {
           ...inscricao,
@@ -162,7 +166,10 @@ export default function PagamentosPage() {
           pagamentos: pagamentosDaInscricao,
           total_aprovado: totalAprovado,
           valor_em_analise: valorEmAnalise,
-          saldo_restante: Math.max(valorTotal - totalAprovado, 0),
+          saldo_restante:
+            statusInscricao === "cortesia"
+              ? 0
+              : Math.max(valorTotal - totalAprovado, 0),
         };
       }
     );
@@ -546,6 +553,56 @@ ${error.message}`
     alert("Pagamento manual registrado com sucesso!");
   }
 
+  async function concederCortesia() {
+    if (!selecionada) {
+      return;
+    }
+
+    if (selecionada.total_aprovado > 0) {
+      alert(
+        "Esta inscrição já possui pagamento aprovado. Não é possível conceder cortesia automaticamente."
+      );
+      return;
+    }
+
+    if (selecionada.valor_em_analise > 0) {
+      alert(
+        "Existe um comprovante em análise. Analise ou recuse o comprovante antes de conceder cortesia."
+      );
+      return;
+    }
+
+    const confirmou = window.confirm(
+      `Conceder cortesia para ${selecionada.nome}?\n\nA pessoa ficará liberada sem cobrança e poderá utilizar o QR Code para check-in.`
+    );
+
+    if (!confirmou) {
+      return;
+    }
+
+    setProcessandoCortesia(true);
+
+    const { error } = await supabase.rpc(
+      "admin_conceder_cortesia",
+      {
+        numero_informado: selecionada.numero_inscricao,
+      }
+    );
+
+    setProcessandoCortesia(false);
+
+    if (error) {
+      console.error(error);
+      alert(
+        `Não foi possível conceder a cortesia:\n\n${error.message}`
+      );
+      return;
+    }
+
+    await carregarDados();
+    alert("Cortesia concedida com sucesso!");
+  }
+
   const termo = pesquisa.toLowerCase().trim();
 
   const inscricoesFiltradas = useMemo(() => {
@@ -879,6 +936,58 @@ ${error.message}`
               />
             </div>
 
+            {normalizarStatus(selecionada.status_pagamento) ===
+            "cortesia" ? (
+              <section className="mt-8 rounded-3xl border border-purple-300/30 bg-purple-500/10 p-5">
+                <h3 className="text-xl font-black text-purple-200">
+                  🎁 Cortesia ativa
+                </h3>
+
+                <p className="mt-3 leading-7 text-purple-100/80">
+                  Esta pessoa está liberada para participar sem cobrança.
+                  O saldo da inscrição não será considerado como valor a
+                  receber.
+                </p>
+              </section>
+            ) : (
+              <section className="mt-8 rounded-3xl border border-purple-300/25 bg-purple-500/10 p-5">
+                <h3 className="text-xl font-black text-purple-200">
+                  🎁 Conceder cortesia
+                </h3>
+
+                <p className="mt-3 leading-7 text-purple-100/75">
+                  Use esta opção para pessoas liberadas pela organização,
+                  como participantes que irão trabalhar no Congresso e não
+                  precisarão pagar a inscrição.
+                </p>
+
+                {(selecionada.total_aprovado > 0 ||
+                  selecionada.valor_em_analise > 0) && (
+                  <div className="mt-4 rounded-xl border border-yellow-300/20 bg-yellow-500/10 p-4 text-sm text-yellow-100">
+                    A cortesia só pode ser concedida quando não houver
+                    pagamento aprovado nem comprovante em análise.
+                  </div>
+                )}
+
+                <button
+                  type="button"
+                  onClick={concederCortesia}
+                  disabled={
+                    processandoCortesia ||
+                    selecionada.total_aprovado > 0 ||
+                    selecionada.valor_em_analise > 0
+                  }
+                  className="mt-5 w-full rounded-xl bg-purple-500 px-5 py-4 font-black text-white transition hover:bg-purple-400 disabled:cursor-not-allowed disabled:opacity-50"
+                >
+                  {processandoCortesia
+                    ? "Concedendo cortesia..."
+                    : "🎁 Conceder cortesia"}
+                </button>
+              </section>
+            )}
+
+            {normalizarStatus(selecionada.status_pagamento) !==
+              "cortesia" && (
             <section className="mt-8 rounded-3xl border border-amber-300/20 bg-amber-300/10 p-5">
               <h3 className="text-xl font-black text-amber-300">
                 💰 Registrar pagamento manual
@@ -963,6 +1072,7 @@ ${error.message}`
                 </button>
               </div>
             </section>
+              )}
 
             <section className="mt-8">
               <h3 className="text-xl font-black text-amber-300">
