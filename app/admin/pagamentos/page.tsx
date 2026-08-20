@@ -85,6 +85,7 @@ export default function PagamentosPage() {
   const [valorManual, setValorManual] = useState("");
   const [formaManual, setFormaManual] = useState("dinheiro");
   const [observacaoManual, setObservacaoManual] = useState("");
+  const [comprovanteManual, setComprovanteManual] = useState<File | null>(null);
   const [registrandoManual, setRegistrandoManual] = useState(false);
   const [processandoCortesia, setProcessandoCortesia] = useState(false);
   const [valorConfirmadoComprovante, setValorConfirmadoComprovante] =
@@ -194,12 +195,49 @@ export default function PagamentosPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  async function abrirComprovante(pagamento: PagamentoParcial) {
+  function extrairComprovanteAdmin(observacao: string | null) {
+    const marcador = "[COMPROVANTE_ADMIN:";
+    const texto = observacao ?? "";
+    const inicio = texto.indexOf(marcador);
+
+    if (inicio === -1) {
+      return "";
+    }
+
+    const fim = texto.indexOf("]", inicio);
+
+    if (fim === -1) {
+      return "";
+    }
+
+    return texto.slice(inicio + marcador.length, fim).trim();
+  }
+
+  function limparMarcadorComprovante(observacao: string | null) {
+    return String(observacao ?? "")
+      .replace(/\s*\[COMPROVANTE_ADMIN:[^\]]+\]\s*/g, " ")
+      .trim();
+  }
+
+  function caminhoComprovante(pagamento: PagamentoParcial) {
     if (
-      pagamento.comprovante_url ===
-      "registrado-manualmente-pelo-admin"
+      pagamento.comprovante_url &&
+      pagamento.comprovante_url !==
+        "registrado-manualmente-pelo-admin"
     ) {
-      alert("Este pagamento foi registrado manualmente e não possui comprovante.");
+      return pagamento.comprovante_url;
+    }
+
+    return extrairComprovanteAdmin(pagamento.observacao);
+  }
+
+  async function abrirComprovante(pagamento: PagamentoParcial) {
+    const caminho = caminhoComprovante(pagamento);
+
+    if (!caminho) {
+      alert(
+        "Este pagamento foi registrado manualmente e não possui comprovante."
+      );
       return;
     }
 
@@ -219,7 +257,7 @@ export default function PagamentosPage() {
     for (const bucket of buckets) {
       const { data, error } = await supabase.storage
         .from(bucket)
-        .createSignedUrl(pagamento.comprovante_url, 60 * 10);
+        .createSignedUrl(caminho, 60 * 10);
 
       if (data?.signedUrl) {
         signedUrl = data.signedUrl;
@@ -501,7 +539,13 @@ ${error.message}`
       return;
     }
 
-    const valor = Number(valorManual.replace(",", "."));
+    const valor = Number(
+      valorManual
+        .trim()
+        .replace(/\s/g, "")
+        .replace(/\./g, "")
+        .replace(",", ".")
+    );
 
     if (!Number.isFinite(valor) || valor <= 0) {
       alert("Informe um valor válido maior que zero.");
@@ -517,12 +561,77 @@ ${error.message}`
       return;
     }
 
-    if (!formaManual) {
-      alert("Escolha a forma de pagamento.");
+    if (!["pix", "dinheiro", "cartao", "carne"].includes(formaManual)) {
+      alert("Escolha uma forma de pagamento válida.");
+      return;
+    }
+
+    if (comprovanteManual) {
+      const tiposPermitidos = [
+        "image/jpeg",
+        "image/png",
+        "image/webp",
+        "application/pdf",
+      ];
+
+      if (!tiposPermitidos.includes(comprovanteManual.type)) {
+        alert("O comprovante deve ser JPG, PNG, WEBP ou PDF.");
+        return;
+      }
+
+      if (comprovanteManual.size > 10 * 1024 * 1024) {
+        alert("O comprovante deve ter no máximo 10 MB.");
+        return;
+      }
+    }
+
+    const confirmou = window.confirm(
+      `Registrar ${formatarMoeda(valor)} via ${formatarForma(
+        formaManual
+      )}${comprovanteManual ? " com comprovante" : ""}?`
+    );
+
+    if (!confirmou) {
       return;
     }
 
     setRegistrandoManual(true);
+
+    let caminhoArquivo = "";
+
+    if (comprovanteManual) {
+      const extensao =
+        comprovanteManual.name.split(".").pop()?.toLowerCase() ||
+        "jpg";
+
+      caminhoArquivo = `admin/${selecionada.numero_inscricao}/${Date.now()}-${crypto.randomUUID()}.${extensao}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("comprovantes-pix")
+        .upload(caminhoArquivo, comprovanteManual, {
+          cacheControl: "3600",
+          upsert: false,
+          contentType: comprovanteManual.type,
+        });
+
+      if (uploadError) {
+        setRegistrandoManual(false);
+        console.error(uploadError);
+        alert(
+          `Não foi possível enviar o comprovante:\n\n${uploadError.message}`
+        );
+        return;
+      }
+    }
+
+    const observacaoComComprovante = [
+      observacaoManual.trim(),
+      caminhoArquivo
+        ? `[COMPROVANTE_ADMIN:${caminhoArquivo}]`
+        : "",
+    ]
+      .filter(Boolean)
+      .join(" ");
 
     const { error } = await supabase.rpc(
       "registrar_pagamento_manual_admin",
@@ -531,13 +640,18 @@ ${error.message}`
         valor_informado: valor,
         forma_informada: formaManual,
         observacao_informada:
-          observacaoManual.trim() || null,
+          observacaoComComprovante || null,
       }
     );
 
-    setRegistrandoManual(false);
-
     if (error) {
+      if (caminhoArquivo) {
+        await supabase.storage
+          .from("comprovantes-pix")
+          .remove([caminhoArquivo]);
+      }
+
+      setRegistrandoManual(false);
       console.error(error);
       alert(
         `Não foi possível registrar o pagamento:\n\n${error.message}`
@@ -545,9 +659,19 @@ ${error.message}`
       return;
     }
 
+    setRegistrandoManual(false);
     setValorManual("");
     setFormaManual("dinheiro");
     setObservacaoManual("");
+    setComprovanteManual(null);
+
+    const inputArquivo = document.getElementById(
+      "comprovante-manual-admin"
+    ) as HTMLInputElement | null;
+
+    if (inputArquivo) {
+      inputArquivo.value = "";
+    }
 
     await carregarDados();
     alert("Pagamento manual registrado com sucesso!");
@@ -1056,6 +1180,34 @@ ${error.message}`
                   />
                 </label>
 
+                <label className="block">
+                  <span className="mb-2 block font-semibold">
+                    Comprovante
+                  </span>
+
+                  <input
+                    id="comprovante-manual-admin"
+                    type="file"
+                    accept="image/jpeg,image/png,image/webp,application/pdf"
+                    onChange={(event) =>
+                      setComprovanteManual(
+                        event.target.files?.[0] ?? null
+                      )
+                    }
+                    className="block w-full rounded-xl border border-amber-200/20 bg-black/20 px-4 py-3 text-sm text-amber-100 file:mr-4 file:rounded-lg file:border-0 file:bg-amber-400 file:px-4 file:py-2 file:font-bold file:text-[#2b180d]"
+                  />
+
+                  <span className="mt-2 block text-sm text-amber-100/60">
+                    Opcional. JPG, PNG, WEBP ou PDF, até 10 MB.
+                  </span>
+
+                  {comprovanteManual && (
+                    <div className="mt-3 rounded-xl border border-green-300/20 bg-green-500/10 p-3 text-sm text-green-200">
+                      📎 {comprovanteManual.name}
+                    </div>
+                  )}
+                </label>
+
                 <button
                   type="button"
                   onClick={registrarPagamentoManual}
@@ -1137,15 +1289,20 @@ ${error.message}`
                         </div>
                       </div>
 
-                      {pagamento.observacao && (
+                      {limparMarcadorComprovante(
+                        pagamento.observacao
+                      ) && (
                         <div className="mt-3 rounded-xl border border-white/10 bg-black/20 p-4">
                           <strong>Observação:</strong>{" "}
-                          {pagamento.observacao}
+                          {limparMarcadorComprovante(
+                            pagamento.observacao
+                          )}
                         </div>
                       )}
 
-                      {pagamento.comprovante_url !==
-                        "registrado-manualmente-pelo-admin" && (
+                      {Boolean(
+                        caminhoComprovante(pagamento)
+                      ) && (
                         <button
                           type="button"
                           onClick={() =>
@@ -1236,7 +1393,7 @@ ${error.message}`
               )}
 
               {urlComprovante &&
-                (pagamentoAberto.comprovante_url
+                (caminhoComprovante(pagamentoAberto)
                   .toLowerCase()
                   .endsWith(".pdf") ? (
                   <iframe
