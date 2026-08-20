@@ -92,6 +92,9 @@ export default function InscritosPage() {
   const [salvando, setSalvando] = useState(false);
   const [excluindo, setExcluindo] = useState(false);
   const [fazendoCheckin, setFazendoCheckin] = useState(false);
+  const [cpfCorrecao, setCpfCorrecao] = useState("");
+  const [formaPagamentoCorrecao, setFormaPagamentoCorrecao] = useState("");
+  const [salvandoCorrecao, setSalvandoCorrecao] = useState(false);
 
   useEffect(() => {
     async function carregarInscritos() {
@@ -146,10 +149,14 @@ export default function InscritosPage() {
   function abrirFicha(inscricao: Inscricao) {
     setEditando(false);
     setInscricaoSelecionada(inscricao);
+    setCpfCorrecao(formatarCpf(inscricao.cpf ?? ""));
+    setFormaPagamentoCorrecao(inscricao.forma_pagamento ?? "");
   }
 
   function abrirEdicao(inscricao: Inscricao) {
     setInscricaoSelecionada(inscricao);
+    setCpfCorrecao(formatarCpf(inscricao.cpf ?? ""));
+    setFormaPagamentoCorrecao(inscricao.forma_pagamento ?? "");
     setEditando(true);
   }
 
@@ -160,6 +167,8 @@ export default function InscritosPage() {
 
     setEditando(false);
     setInscricaoSelecionada(null);
+    setCpfCorrecao("");
+    setFormaPagamentoCorrecao("");
   }
 
   function atualizarInscricaoNaLista(
@@ -191,9 +200,6 @@ export default function InscritosPage() {
         telefone: dados.telefone.trim(),
         email: dados.email.trim(),
         igreja: dados.igreja.trim(),
-
-        forma_pagamento:
-          dados.forma_pagamento?.trim() || null,
 
         contato_emergencia_nome:
           dados.contato_emergencia_nome?.trim() || null,
@@ -231,6 +237,83 @@ export default function InscritosPage() {
     setEditando(false);
 
     alert("Inscrição atualizada com sucesso!");
+  }
+
+  async function salvarCorrecaoAdministrativa() {
+    if (!inscricaoSelecionada) {
+      return;
+    }
+
+    const cpfSomenteNumeros = cpfCorrecao.replace(/\D/g, "");
+
+    if (cpfSomenteNumeros.length !== 11) {
+      alert("O CPF deve ter exatamente 11 números.");
+      return;
+    }
+
+    if (
+      !["pix", "dinheiro", "cartao", "carne"].includes(
+        formaPagamentoCorrecao
+      )
+    ) {
+      alert("Escolha uma forma de pagamento válida.");
+      return;
+    }
+
+    const confirmou = window.confirm(
+      `Salvar CPF e forma de pagamento de ${inscricaoSelecionada.nome}?`
+    );
+
+    if (!confirmou) {
+      return;
+    }
+
+    setSalvandoCorrecao(true);
+
+    const { data, error } = await supabase.rpc(
+      "admin_atualizar_cpf_forma_pagamento",
+      {
+        numero_informado: Number(
+          inscricaoSelecionada.numero_inscricao
+        ),
+        cpf_informado: formatarCpf(cpfSomenteNumeros),
+        forma_informada: formaPagamentoCorrecao,
+      }
+    );
+
+    setSalvandoCorrecao(false);
+
+    if (error) {
+      console.error(
+        "Erro ao salvar CPF/forma de pagamento:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Não foi possível salvar CPF e forma de pagamento."
+      );
+      return;
+    }
+
+    if (!data) {
+      alert(
+        "O banco não retornou a inscrição atualizada."
+      );
+      return;
+    }
+
+    const inscricaoAtualizada = data as Inscricao;
+
+    atualizarInscricaoNaLista(inscricaoAtualizada);
+    setCpfCorrecao(
+      formatarCpf(inscricaoAtualizada.cpf ?? "")
+    );
+    setFormaPagamentoCorrecao(
+      inscricaoAtualizada.forma_pagamento ?? ""
+    );
+
+    alert("CPF e forma de pagamento atualizados com sucesso!");
   }
 
   async function realizarCheckin(inscricao: Inscricao) {
@@ -561,12 +644,91 @@ export default function InscritosPage() {
             </div>
 
             {editando ? (
-              <FormularioEdicao
-                dados={inscricaoSelecionada}
-                salvando={salvando}
-                onSalvar={salvarEdicao}
-                onCancelar={() => setEditando(false)}
-              />
+              <div>
+                <section className="mt-6 rounded-2xl border border-blue-300/25 bg-blue-500/10 p-5">
+                  <h3 className="text-lg font-black text-blue-200">
+                    ✏️ Correções administrativas
+                  </h3>
+
+                  <p className="mt-2 text-sm leading-6 text-blue-50/70">
+                    Corrija o CPF ou altere a forma de pagamento do participante.
+                    Se mudar para PIX, a área de PIX aparecerá automaticamente
+                    na página Minha Inscrição.
+                  </p>
+
+                  <div className="mt-5 space-y-4">
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-bold text-blue-100">
+                        CPF
+                      </span>
+
+                      <input
+                        type="text"
+                        inputMode="numeric"
+                        maxLength={14}
+                        value={cpfCorrecao}
+                        onChange={(event) =>
+                          setCpfCorrecao(
+                            formatarCpf(event.target.value)
+                          )
+                        }
+                        placeholder="000.000.000-00"
+                        className="w-full rounded-xl border border-blue-300/20 bg-black/20 px-4 py-3 text-white outline-none focus:border-blue-300"
+                      />
+
+                      <span className="mt-2 block text-xs text-blue-50/60">
+                        O CPF precisa ter exatamente 11 números.
+                      </span>
+                    </label>
+
+                    <label className="block">
+                      <span className="mb-2 block text-sm font-bold text-blue-100">
+                        Forma de pagamento
+                      </span>
+
+                      <select
+                        value={formaPagamentoCorrecao}
+                        onChange={(event) =>
+                          setFormaPagamentoCorrecao(
+                            event.target.value
+                          )
+                        }
+                        className="w-full rounded-xl border border-blue-300/20 bg-[#21150f] px-4 py-3 text-white outline-none focus:border-blue-300"
+                      >
+                        <option value="">Selecione</option>
+                        <option value="pix">PIX</option>
+                        <option value="dinheiro">Dinheiro</option>
+                        <option value="cartao">Cartão</option>
+                        <option value="carne">Carnê</option>
+                      </select>
+                    </label>
+
+                    <div className="rounded-xl border border-amber-300/20 bg-amber-500/10 p-4 text-sm leading-6 text-amber-100">
+                      Alterar a forma de pagamento não apaga pagamentos já
+                      registrados e não altera o valor já aprovado.
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={salvarCorrecaoAdministrativa}
+                      disabled={salvandoCorrecao}
+                      className="w-full rounded-xl bg-blue-500 px-5 py-3 font-black text-white transition hover:bg-blue-400 disabled:cursor-not-allowed disabled:opacity-50"
+                    >
+                      {salvandoCorrecao
+                        ? "Salvando..."
+                        : "💾 Salvar CPF e forma de pagamento"}
+                    </button>
+                  </div>
+                </section>
+
+
+                <FormularioEdicao
+                  dados={inscricaoSelecionada}
+                  salvando={salvando}
+                  onSalvar={salvarEdicao}
+                  onCancelar={() => setEditando(false)}
+                />
+              </div>
             ) : (
               <>
                 <Secao titulo="📋 Dados pessoais">
@@ -966,6 +1128,17 @@ function Detalhe({
       </p>
     </div>
   );
+}
+
+function formatarCpf(valor: string) {
+  const numeros = String(valor ?? "")
+    .replace(/\D/g, "")
+    .slice(0, 11);
+
+  return numeros
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
 }
 
 function formatarData(data: string | null) {
