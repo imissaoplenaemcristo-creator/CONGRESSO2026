@@ -186,6 +186,16 @@ function formatarNascimentoParaExibicao(dataIso: string) {
   return `${dia}/${mes}/${ano}`;
 }
 
+
+function formatarCpf(valor: string) {
+  const numeros = valor.replace(/\D/g, "").slice(0, 11);
+
+  return numeros
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d)/, "$1.$2")
+    .replace(/(\d{3})(\d{1,2})$/, "$1-$2");
+}
+
 function formatarTelefone(valor: string) {
   const numeros = valor.replace(/\D/g, "").slice(0, 11);
 
@@ -262,8 +272,10 @@ export default function FormularioPage() {
         return;
       }
 
-      if (form.documento.trim().length < 5) {
-        setErro("Informe seu CPF.");
+      const cpfSomenteNumeros = form.documento.replace(/\D/g, "");
+
+      if (cpfSomenteNumeros.length !== 11) {
+        setErro("Informe um CPF válido com exatamente 11 números.");
         return;
       }
 
@@ -657,10 +669,12 @@ if (idade <= 5) {
                   <Campo
                     label="CPF"
                     value={form.documento}
+                    placeholder="000.000.000-00"
+                    inputMode="numeric"
                     onChange={(valor) =>
                       atualizarCampo(
                         "documento",
-                        valor
+                        formatarCpf(valor)
                       )
                     }
                   />
