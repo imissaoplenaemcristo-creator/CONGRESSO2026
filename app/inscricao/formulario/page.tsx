@@ -118,6 +118,74 @@ function calcularIdadeNoCongresso(dataNascimento: string): number {
 
   return idade;
 }
+
+function formatarNascimentoDigitado(valor: string) {
+  const numeros = valor.replace(/\D/g, "").slice(0, 8);
+
+  if (numeros.length <= 2) {
+    return numeros;
+  }
+
+  if (numeros.length <= 4) {
+    return `${numeros.slice(0, 2)}/${numeros.slice(2)}`;
+  }
+
+  return `${numeros.slice(0, 2)}/${numeros.slice(2, 4)}/${numeros.slice(4)}`;
+}
+
+function converterNascimentoParaIso(valor: string) {
+  const partes = valor.split("/");
+
+  if (partes.length !== 3) {
+    return "";
+  }
+
+  const [diaTexto, mesTexto, anoTexto] = partes;
+  const dia = Number(diaTexto);
+  const mes = Number(mesTexto);
+  const ano = Number(anoTexto);
+
+  if (
+    diaTexto.length !== 2 ||
+    mesTexto.length !== 2 ||
+    anoTexto.length !== 4 ||
+    !dia ||
+    !mes ||
+    !ano ||
+    ano < 1900 ||
+    ano > 2026
+  ) {
+    return "";
+  }
+
+  const data = new Date(ano, mes - 1, dia);
+
+  const dataValida =
+    data.getFullYear() === ano &&
+    data.getMonth() === mes - 1 &&
+    data.getDate() === dia;
+
+  if (!dataValida) {
+    return "";
+  }
+
+  return `${String(ano).padStart(4, "0")}-${String(mes).padStart(2, "0")}-${String(dia).padStart(2, "0")}`;
+}
+
+function formatarNascimentoParaExibicao(dataIso: string) {
+  if (!dataIso) {
+    return "";
+  }
+
+  const [ano, mes, dia] = dataIso.split("-");
+
+  if (!ano || !mes || !dia) {
+    return dataIso;
+  }
+
+  return `${dia}/${mes}/${ano}`;
+}
+
 function formatarTelefone(valor: string) {
   const numeros = valor.replace(/\D/g, "").slice(0, 11);
 
@@ -151,6 +219,7 @@ export default function FormularioPage() {
   const [enviando, setEnviando] = useState(false);
   const [termoAberto, setTermoAberto] = useState(false);
   const [termoVisualizado, setTermoVisualizado] = useState(false);
+  const [nascimentoDigitado, setNascimentoDigitado] = useState("");
 
   const menorDeIdade =
     Boolean(form.nascimento) &&
@@ -169,6 +238,21 @@ export default function FormularioPage() {
     }));
   }
 
+  function atualizarNascimento(valor: string) {
+    const formatado = formatarNascimentoDigitado(valor);
+
+    setNascimentoDigitado(formatado);
+
+    if (formatado.length < 10) {
+      atualizarCampo("nascimento", "");
+      return;
+    }
+
+    const dataIso = converterNascimentoParaIso(formatado);
+
+    atualizarCampo("nascimento", dataIso);
+  }
+
   function avancar() {
     setErro("");
 
@@ -184,9 +268,11 @@ export default function FormularioPage() {
       }
 
       if (!form.nascimento) {
-  setErro("Informe sua data de nascimento.");
-  return;
-}
+        setErro(
+          "Informe uma data de nascimento válida no formato DD/MM/AAAA."
+        );
+        return;
+      }
 
 const idade = calcularIdadeNoCongresso(form.nascimento);
 
@@ -581,14 +667,10 @@ if (idade <= 5) {
 
                   <Campo
                     label="Data de nascimento"
-                    type="date"
-                    value={form.nascimento}
-                    onChange={(valor) =>
-                      atualizarCampo(
-                        "nascimento",
-                        valor
-                      )
-                    }
+                    value={nascimentoDigitado}
+                    placeholder="DD/MM/AAAA"
+                    inputMode="numeric"
+                    onChange={atualizarNascimento}
                   />
                 </div>
               </section>
@@ -1033,7 +1115,9 @@ if (idade <= 5) {
 
                   <ItemRevisao
                     titulo="Data de nascimento"
-                    valor={form.nascimento}
+                    valor={formatarNascimentoParaExibicao(
+                      form.nascimento
+                    )}
                   />
 
                   <ItemRevisao
